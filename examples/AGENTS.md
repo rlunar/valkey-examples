@@ -25,6 +25,8 @@ The capsule must:
 - run from a clean clone without paid credentials;
 - use real Valkey for integration and journey tests;
 - expose the expected behavior and cleanup in its README;
+- embed the diagrams required by [`docs/authoring.md`](../docs/authoring.md)
+  beside the prose they explain;
 - contain no empty directories; and
 - import no runtime code from another capsule or repository-level helper.
 
@@ -50,6 +52,7 @@ Before reporting implementation complete:
 2. run native formatting, linting, type checking, and tests;
 3. run the real-Valkey integration and documented journey tests;
 4. verify cleanup after both complete and partial startup;
-5. validate the manifest and repository structure;
-6. run `git diff --check`; and
-7. distinguish checks executed from checks only documented.
+5. verify diagrams match the implemented architecture and observed journey;
+6. validate the manifest and repository structure;
+7. run `git diff --check`; and
+8. distinguish checks executed from checks only documented.

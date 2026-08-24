@@ -15,6 +15,7 @@ Describe the Valkey behavior and expected observable result.
 - [ ] The journey uses real Valkey and released public dependencies.
 - [ ] Runtime and direct dependencies are pinned and application lockfiles are committed.
 - [ ] Expected output and relevant Valkey state are asserted.
+- [ ] Required architecture and behavior diagrams are embedded and match the implementation.
 - [ ] Cleanup succeeds after both a complete and a partial run.
 - [ ] Security and production limitations are documented.
 - [ ] Primary and backup owners and reviewers are present.

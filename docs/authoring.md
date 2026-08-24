@@ -61,6 +61,35 @@ Every capsule README must include:
 
 Every primary-path command shown in the README must run in CI.
 
+## Diagram contract
+
+Every example capsule must embed at least one explanatory diagram in its
+`README.md` or `DESIGN.md`. Prefer fenced Mermaid diagrams because their source
+is reviewable, diffable, and rendered with the surrounding documentation.
+
+Choose diagrams that explain the learning path:
+
+- use an architecture diagram for modules, adapters, processes, and stores;
+- use a sequence diagram for time-ordered requests, responses, retries, or
+  success and failure branches;
+- use a flowchart for decision logic; and
+- use a data model or state diagram when stored structure or transitions are
+  the learning objective.
+
+A request/response demo with materially different outcomes should include both
+an architecture diagram and a sequence diagram covering the primary success
+and failure responses.
+
+Place each diagram beside the narrative it explains: introduce the question or
+flow, embed the diagram, then explain the important nodes and arrows in prose.
+Keep labels, commands, ports, status codes, and implementation names
+synchronized with the runnable capsule. Split a dense diagram rather than
+shrinking it into an unreadable overview.
+
+When Mermaid cannot express the diagram clearly, commit the editable source
+and an accessible rendered asset. Generated media never replaces the editable
+source.
+
 ## Multi-language sample applications
 
 Keep the journey and contracts stable while implementations vary:

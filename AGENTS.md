@@ -81,6 +81,8 @@ exists or its path is ambiguous, resolve the proposal before creating code.
 - Pin direct dependencies, runtime versions, and container images.
 - Bind local services to loopback and document non-production security choices.
 - Use real Valkey in integration and journey tests.
+- Apply the diagram contract in `docs/authoring.md` to every proposal and
+  capsule; prefer Mermaid embedded beside its explanatory prose.
 
 ## Completion criteria
 
@@ -93,5 +95,6 @@ Before reporting completion:
 3. run `bash tools/ci/check-structure.sh`;
 4. run Markdown lint for documentation changes;
 5. validate changed JSON and YAML files;
-6. run `git diff --check`; and
-7. report which checks actually ran.
+6. confirm required diagrams match the documented architecture and behavior;
+7. run `git diff --check`; and
+8. report which checks actually ran.

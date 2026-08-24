@@ -44,13 +44,22 @@ references in the same change.
 files, commands, tests, and runtime behavior, but it must not create the capsule
 or application implementation.
 
+## Diagram contract
+
+Follow [`docs/authoring.md`](../authoring.md). Every proposal must identify the
+diagrams its capsule will maintain. Embed them in the proposal when the
+architecture or behavior is already known. Request/response demos with distinct
+success and failure outcomes include an architecture diagram and a sequence
+diagram showing both outcomes.
+
 ## Proposal validation
 
 Before completion:
 
 1. validate front matter as YAML;
 2. verify all relative links;
-3. run Markdown lint;
-4. run `bash tools/ci/check-structure.sh`;
-5. run `git diff --check`; and
-6. confirm only authorized documentation and taxonomy files changed.
+3. confirm diagrams agree with the proposed modules, interfaces, and journey;
+4. run Markdown lint;
+5. run `bash tools/ci/check-structure.sh`;
+6. run `git diff --check`; and
+7. confirm only authorized documentation and taxonomy files changed.

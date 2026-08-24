@@ -12,7 +12,8 @@ proposed_path: examples/rate-limiter/sliding-window-python-flask
 ## Decision requested
 
 Approve a focused Python demo that uses Flask, Valkey GLIDE, and a Valkey sorted
-set to enforce an atomic sliding-window request limit.
+set to enforce a sliding-window request limit through two selectable atomic
+implementations: `WATCH`/`MULTI`/`EXEC` and server-side Lua.
 
 Approval authorizes implementation planning only. The capsule must remain in
 `candidate` status until owners, reviewers, exact dependency versions, the
@@ -32,10 +33,10 @@ demonstration client identifier, sends requests, and observes:
    window.
 
 Valkey stores one sorted set per policy and client identity. Each accepted
-request is a unique member scored with Valkey server time in milliseconds. One
-server-side Lua script removes expired members, counts the active window,
-conditionally records the request, refreshes expiration, and returns the rate
-limit decision atomically.
+request is a unique member scored with Valkey server time in milliseconds. The
+same rate-limiter interface can be backed by either an optimistic
+`WATCH`/`MULTI`/`EXEC` transaction or a server-side Lua script. A local `.env`
+toggle selects the implementation, with `multi-exec` as the default.
 
 ## Why this belongs in Valkey Examples
 
@@ -59,14 +60,19 @@ The demo must:
 
 - teach a true sliding-window log algorithm rather than a fixed-window counter;
 - use a Valkey sorted set as the source of truth;
-- make the concurrency guarantee explicit and test it;
+- provide equivalent `multi-exec` and `lua` implementations;
+- select the implementation through `.env`, defaulting to `multi-exec`;
+- make each implementation's concurrency guarantee explicit and test it;
 - use Valkey server time to avoid application-host clock skew;
 - use Python 3.13 or newer, with Python 3.13 as the initial tested baseline;
 - use uv for Python acquisition, locking, installation, and command execution;
 - use Flask as a small HTTP adapter;
 - use the synchronous Valkey GLIDE Python client;
-- run Valkey from `valkey/valkey:9-alpine` with an immutable digest;
+- run Valkey from `valkey/valkey:9-trixie` with an immutable digest;
 - remain credential-free and runnable from a clean clone;
+- provide a one-command, self-cleaning `make demo` journey after prerequisites
+  are installed;
+- provide an optional reproducible VHS recording of the same journey;
 - reach the first visible rate-limit decision within five minutes; and
 - expose all behavior through the capsule's standard `make` interface.
 
@@ -78,10 +84,13 @@ The first version will not:
 - trust `X-Forwarded-For` or configure a reverse proxy;
 - implement distributed policy administration;
 - provide per-route configuration through a database or user interface;
-- compare rate-limiting algorithms or publish performance claims;
+- compare rate-limiting algorithms, benchmark the two implementations, or
+  publish performance claims;
 - use Valkey Cluster, Sentinel, replicas, TLS, or ACLs;
 - package a reusable Flask extension or Python library;
-- run the Flask application in an Alpine container; or
+- containerize the Flask application in the first version;
+- require Homebrew or presentation tools on non-macOS systems;
+- commit generated GIF, MP4, WebM, or terminal-frame artifacts; or
 - claim that the example is a production-certified rate limiter.
 
 ## Proposed capsule
@@ -92,11 +101,18 @@ examples/rate-limiter/sliding-window-python-flask/
 ├── README.md
 ├── DESIGN.md
 ├── Makefile
+├── Brewfile
 ├── compose.yaml
 ├── .env.example
+├── .gitignore
 ├── .python-version
 ├── pyproject.toml
 ├── uv.lock
+├── demo/
+│   └── sliding-window.tape
+├── scripts/
+│   ├── demo.sh
+│   └── doctor.sh
 ├── src/
 │   └── rate_limiter_demo/
 │       ├── __init__.py
@@ -105,9 +121,13 @@ examples/rate-limiter/sliding-window-python-flask/
 │       ├── decision.py
 │       ├── identity.py
 │       ├── limiter.py
-│       ├── valkey_limiter.py
-│       └── scripts/
-│           └── sliding_window.lua
+│       └── valkey/
+│           ├── __init__.py
+│           ├── common.py
+│           ├── lua.py
+│           ├── multi_exec.py
+│           └── scripts/
+│               └── sliding_window.lua
 └── tests/
     ├── unit/
     ├── integration/
@@ -120,35 +140,128 @@ is approved.
 Directories will be added only when they contain required files. No shared
 repository runtime package will be introduced.
 
-## Runtime topology
+## Quick demo experience
+
+The shortest macOS path from the capsule directory is:
+
+```shell
+brew bundle
+make demo
+```
+
+Homebrew is a convenience for installing local tools; it is not a runtime
+requirement or the only supported installation method. Docker must already be
+installed, running, and provide Compose v2 because installing or launching a
+container engine is outside the capsule's scope.
+
+The capsule documents three prerequisite tiers:
+
+| Tier | Tools | Purpose |
+| --- | --- | --- |
+| Core | `make`, Docker with Compose v2, `uv`, HTTPie | Install, start, run, demonstrate, test, and stop the capsule |
+| Presentation | `gum`, `bat`, `jq`, `yq` | Improve progress, source display, JSON formatting, and manifest inspection |
+| Recording | VHS | Render the scripted terminal journey as MP4 or GIF |
+
+The committed `Brewfile` installs `uv`, `gum`, `httpie`, `bat`, `jq`, `yq`, and
+`vhs`. Homebrew's VHS formula also installs its terminal and media dependencies.
+The README provides equivalent non-Homebrew installation instructions and
+clearly marks VHS as optional.
+
+### Demo command
+
+`make demo` is a non-interactive, deterministic convenience target. It:
+
+1. runs `scripts/doctor.sh` and reports the active tool versions;
+2. installs the locked Python environment through `make setup`;
+3. starts Valkey and Flask and waits on health checks;
+4. reports the selected `multi-exec` or `lua` implementation;
+5. displays the selected implementation source and relevant manifest metadata;
+6. uses HTTPie to send five allowed requests and format their status, headers,
+   and JSON;
+7. uses HTTPie to send the sixth request and highlight HTTP 429 and
+   `Retry-After`;
+8. displays the bounded sorted-set state without exposing the raw identity;
+9. waits through bounded polling and demonstrates the next allowed request; and
+10. calls `make stop` from an exit trap, including after interruption or
+    partial failure.
+
+HTTPie is required for `make demo`. Every user-visible HTTP request uses the
+`http` command; the demo has no curl fallback. `scripts/doctor.sh` fails fast
+with platform-appropriate HTTPie installation guidance when `http` is missing.
+
+The command uses Gum, bat, jq, and yq when available and falls back to plain
+output when those presentation tools are absent. Missing optional tools produce
+a single installation hint, not a failure. `CI=1 make demo` still uses HTTPie
+but disables color, animation, prompts, and timing-dependent pauses for stable
+output.
+
+The default command demonstrates `multi-exec`. The alternate implementation
+requires no file edit:
+
+```shell
+RATE_LIMIT_IMPLEMENTATION=lua make demo
+```
+
+Both invocations exercise the same journey and assertions. `make demo` manages
+only resources labeled for this capsule and must not stop unrelated processes
+or containers.
+
+### Demo recording
+
+`make demo-record` validates and runs `demo/sliding-window.tape`. The tape types
+the same `make demo` command a reader runs; it does not duplicate the HTTP
+scenario in VHS instructions.
+
+The default output is:
 
 ```text
-HTTP client
-    |
-    v
-Flask HTTP adapter
-    |
-    v
-RateLimiter interface
-    |
-    v
-ValkeySlidingWindow adapter
-    |
-    v
-GLIDE sync client + cached Script
-    |
-    v
-valkey/valkey:9-alpine
+.artifacts/sliding-window-rate-limiter.mp4
+```
+
+`.artifacts/` is ignored and generated media is never required for runtime,
+tests, or review. The tape uses health-based readiness and the deterministic
+demo command rather than fixed sleeps for application startup. Recording is an
+explicit local action and is not part of the default CI or clean-clone journey.
+
+## Runtime topology
+
+The architecture keeps the HTTP adapter independent from the selected atomic
+rate-limiter implementation:
+
+```mermaid
+flowchart LR
+    caller["HTTP client"]
+
+    subgraph host["Host: Python 3.13 and uv"]
+        flask["Flask HTTP adapter"]
+        config[".env configuration"] -->|"selects at startup"| limiter["RateLimiter interface"]
+        flask --> limiter
+        limiter -->|"multi-exec"| transaction["WATCH / MULTI / EXEC"]
+        limiter -->|"lua"| script["Cached Lua script"]
+        transaction --> glide["GLIDE sync client"]
+        script --> glide
+    end
+
+    subgraph docker["Docker"]
+        valkey[("Valkey 9 Trixie: sorted set per policy and identity")]
+    end
+
+    caller -->|"GET /api/limited with X-Client-ID"| flask
+    glide --> valkey
 ```
 
 Only Valkey runs in Docker in the default journey. The Flask process runs on
-the host through uv.
+the host through uv. Configuration chooses one adapter during application
+startup, while both adapters reach the same Valkey sorted-set representation
+through the synchronous GLIDE client.
 
 This separation is intentional: the checked-out GLIDE Python project supports
 Python 3.13 and provides a synchronous package, but explicitly does not support
-Alpine Linux or other musl-based Python environments. A future containerized
-Flask adapter would therefore use a compatible glibc-based Python image, not
-Alpine.
+Alpine Linux or other musl-based Python environments. That limitation applies
+to the host-run Flask process where GLIDE is loaded, not to the separate Valkey
+server container. The server nevertheless uses the requested Debian Trixie
+image for a consistent glibc-based container choice. A future containerized
+Flask adapter must also use a compatible glibc-based Python image.
 
 ## Module design
 
@@ -184,23 +297,32 @@ The interface includes these invariants:
 - callers do not depend on Valkey, GLIDE, Lua, or sorted-set result types.
 
 The small interface gives the HTTP adapter one test surface while keeping
-atomicity, key construction, script invocation, and result decoding local to
-the Valkey implementation.
+atomicity, key construction, transaction or script execution, and result
+decoding local to the selected Valkey implementation.
 
-### ValkeySlidingWindow adapter
+### Valkey adapters
 
-The Valkey adapter owns:
+Both Valkey adapters own:
 
 - deriving a bounded, non-sensitive key;
-- constructing and retaining the GLIDE `Script` object;
-- invoking the script with exactly one key;
-- validating and decoding the script result;
+- applying identical window-boundary and decision semantics;
+- validating and decoding Valkey results;
 - translating GLIDE failures into a dependency error; and
 - closing the GLIDE client during application shutdown.
 
-The GLIDE client is created once per Flask process, not once per request.
-Application teardown must not close the shared client after every request.
-Multi-process servers must create clients after worker processes are forked.
+`MultiExecValkeySlidingWindow` implements the operation with optimistic locking
+and an atomic batch. `LuaValkeySlidingWindow` implements it with one cached
+server-side script. Configuration selects one adapter at application startup;
+route handlers never branch on the implementation.
+
+The Lua adapter retains one GLIDE `Script` object and uses one process-lifetime
+GLIDE client. The multi-exec adapter also owns a process-lifetime client, but it
+must guard the complete `WATCH` through `EXEC` sequence with a process-local
+mutex so two threads cannot interleave transaction state on the same client.
+Separate processes create their clients after forking and coordinate through
+Valkey's optimistic locking.
+
+Application teardown must not close a shared client after every request.
 
 ### Identity adapter
 
@@ -227,7 +349,7 @@ Each policy and identity uses one key:
 
 `valkey-examples:rate-limit:v1:<policy-id>:<identity-hash>`
 
-Only one key is passed to the script, so the algorithm remains cluster-slot
+Each operation uses only one key, so both implementations remain cluster-slot
 safe if cluster support is added later.
 
 ### Sorted-set representation
@@ -241,29 +363,63 @@ safe if cluster support is added later.
 Unix time in milliseconds remains within the exactly representable integer
 range documented for sorted-set scores.
 
-### Atomic decision
+### Shared decision semantics
 
-For one attempted request, the script:
+For one attempted request, both implementations:
 
 1. validates the limit and window arguments;
 2. obtains the current time from Valkey with `TIME`;
 3. computes the inclusive expiration cutoff;
-4. removes scores at or before the cutoff with `ZREMRANGEBYSCORE`;
-5. reads the active count with `ZCARD`;
+4. treats scores at or before the cutoff as expired;
+5. counts only scores greater than the cutoff;
 6. allows the request only when the count is below the configured limit;
 7. for an allowed request, adds one unique member with `ZADD`;
-8. refreshes the key expiration with `PEXPIRE`;
+8. removes expired members with `ZREMRANGEBYSCORE` and refreshes the key
+   expiration with `PEXPIRE`;
 9. reads the oldest active score needed to calculate reset time; and
-10. returns a fixed-position array containing the decision and timing values.
+10. returns the same decision and timing values.
 
-The script is the atomicity seam. The design rejects a sequence of independent
-client commands because concurrent Flask workers could otherwise admit more
-requests than the policy permits.
+The adapter interface is the atomicity seam. The design rejects a sequence of
+independent client commands because concurrent Flask workers could otherwise
+admit more requests than the policy permits.
+
+The Lua implementation may clean expired members before deciding. The
+multi-exec deny path may leave them for the next accepted request or key
+expiration. This storage-maintenance difference must not change the observable
+decision.
 
 An entry whose timestamp is exactly one full window old is expired. This rule
 must be stated in tests so boundary behavior is not implementation-dependent.
 
-### Script execution
+### Multi-exec execution
+
+`multi-exec` is the default implementation. It uses optimistic locking because
+plain `MULTI`/`EXEC` cannot conditionally insert a member based on a queued
+`ZCOUNT` result.
+
+Within the process-local transaction mutex, one attempt:
+
+1. calls `WATCH` for the rate-limit key;
+2. calls `TIME` and calculates the cutoff;
+3. counts active scores greater than the cutoff with `ZCOUNT`;
+4. creates `Batch(is_atomic=True)`;
+5. when capacity is available, queues cleanup, insertion, expiration, and an
+   oldest-score read;
+6. when the limit is already reached, queues read-only count and oldest-score
+   commands to verify the watched state;
+7. calls `exec`; and
+8. retries the complete attempt with a new server timestamp when `exec` returns
+   `None` because the watched key changed.
+
+The deny path does not extend the key lifetime. Expired entries may remain
+until the next accepted request, but active counting excludes them and the key
+still expires after the last accepted request's window.
+
+Retries are bounded. Exhausting the retry budget is a dependency error rather
+than an implicit allow or deny decision. Every exception path must clear watch
+state before returning the client to use.
+
+### Lua execution
 
 The synchronous GLIDE `Script` interface is used because it:
 
@@ -274,6 +430,9 @@ The synchronous GLIDE `Script` interface is used because it:
 - avoids wrapping the operation in a second transaction layer.
 
 The script object is created once and retained for the process lifetime.
+The script performs validation, server-time lookup, cleanup, counting,
+conditional insertion, expiration, and oldest-score lookup in one atomic
+server-side execution.
 
 ## HTTP interface
 
@@ -301,6 +460,39 @@ so the behavior is easy to inspect.
 
 Missing or invalid identity input returns HTTP 400 and does not call Valkey.
 
+### Allowed and denied request sequence
+
+The selected adapter returns the same decision contract whether it uses
+`WATCH`/`MULTI`/`EXEC` or Lua:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor caller as HTTP client
+    participant flask as Flask adapter
+    participant limiter as Selected RateLimiter
+    participant valkey as Valkey sorted set
+
+    caller->>flask: GET /api/limited with X-Client-ID
+    flask->>limiter: check(identity, policy, request_id)
+    limiter->>valkey: Atomic sliding-window decision
+    Note over limiter,valkey: Use TIME, exclude expired scores, count active, conditionally add, and refresh TTL when allowed
+    valkey-->>limiter: allowed, remaining, reset and retry timing
+
+    alt Below request limit
+        limiter-->>flask: allowed = true
+        flask-->>caller: 200 OK with RateLimit headers
+    else Request limit reached
+        limiter-->>flask: allowed = false
+        flask-->>caller: 429 Too Many Requests with Retry-After
+    end
+```
+
+An allowed decision records the unique request member and returns HTTP 200. A
+denied decision does not insert a member and returns HTTP 429 with the bounded
+retry interval. Flask maps the decision to HTTP without knowing which Valkey
+adapter produced it.
+
 ### `GET /health/live`
 
 Returns HTTP 200 when the Flask process is running. It does not query Valkey.
@@ -322,12 +514,19 @@ Configuration will be provided through environment variables:
 | `VALKEY_HOST` | `127.0.0.1` | Non-empty hostname |
 | `VALKEY_PORT` | `6379` | Valid TCP port |
 | `GLIDE_REQUEST_TIMEOUT_MS` | `500` | Positive and bounded |
+| `RATE_LIMIT_IMPLEMENTATION` | `multi-exec` | `multi-exec` or `lua` |
+| `RATE_LIMIT_TRANSACTION_MAX_RETRIES` | `8` | Positive and bounded |
 | `RATE_LIMIT_REQUESTS` | `5` | Positive and bounded |
 | `RATE_LIMIT_WINDOW_MS` | `10000` | Positive and bounded |
 | `RATE_LIMIT_POLICY_ID` | `demo` | Lower-case bounded slug |
 | `RATE_LIMIT_KEY_PREFIX` | `valkey-examples:rate-limit:v1` | Fixed by default |
 | `FLASK_HOST` | `127.0.0.1` | Loopback default |
 | `FLASK_PORT` | `8000` | Valid TCP port |
+
+The committed `.env.example` sets
+`RATE_LIMIT_IMPLEMENTATION=multi-exec`. A local ignored `.env` can switch to
+`RATE_LIMIT_IMPLEMENTATION=lua`, and `make start` loads that file when present.
+The application-level default remains `multi-exec` when the variable is absent.
 
 Invalid configuration fails application startup rather than falling back to an
 unknown policy.
@@ -355,25 +554,37 @@ and locked during implementation.
 The built-in development server is used only for the local educational journey.
 The README will explicitly state that it is not a production server.
 
+### HTTPie
+
+The human-facing demo uses HTTPie's `http` command for every endpoint request
+because it presents status lines, headers, and JSON more clearly than a raw HTTP
+client. The implementation selects and records an exact tested HTTPie version.
+CI installs that version explicitly before running `CI=1 make demo`.
+
+HTTPie is demo tooling, not an application dependency. Flask health polling and
+pytest may use their native clients internally, but the documented demo command
+does not invoke curl.
+
 ### Valkey GLIDE
 
 The capsule uses the `valkey-glide-sync` distribution and the `glide_sync`
 import namespace.
 
 The exact released version is selected and locked during implementation.
-Direct sorted-set calls may be used for test inspection, but the runtime
-decision uses the cached `Script` interface so the complete algorithm executes
-atomically.
+The multi-exec adapter uses GLIDE's synchronous `watch`, sorted-set commands,
+`Batch(is_atomic=True)`, `exec`, and `unwatch` interfaces. The Lua adapter uses
+the cached `Script` interface. Direct sorted-set calls may also be used for test
+inspection.
 
 ### Valkey container
 
-The Compose service uses the requested `valkey/valkey:9-alpine` image and records
+The Compose service uses the requested `valkey/valkey:9-trixie` image and records
 the resolved immutable digest:
 
-`valkey/valkey:9-alpine@sha256:<resolved-digest>`
+`valkey/valkey:9-trixie@sha256:<resolved-digest>`
 
-This preserves the requested major Alpine tag while satisfying the repository's
-immutable-image requirement.
+This preserves the requested Valkey 9 Debian Trixie tag while satisfying the
+repository's immutable-image requirement.
 
 The service:
 
@@ -386,15 +597,17 @@ The service:
 
 ## Failure behavior
 
-If Valkey is unavailable, the script fails, or the GLIDE result cannot be
-validated, the endpoint returns HTTP 503.
+If Valkey is unavailable, a transaction exhausts its retry budget, a script
+fails, or a GLIDE result cannot be validated, the endpoint returns HTTP 503.
 
 The demo does not silently fail open and does not misreport a dependency
 failure as HTTP 429. This makes the learning outcome and operational limitation
 visible.
 
 Logs include the decision, policy ID, HTTP status, and latency. They do not
-include the raw client identity, full derived key, or script arguments.
+include the raw client identity, full derived key, transaction arguments, or
+script arguments. Logs identify the selected implementation and may record
+aggregate transaction retry counts.
 
 ## Test strategy
 
@@ -403,9 +616,11 @@ include the raw client identity, full derived key, or script arguments.
 Unit tests cover:
 
 - configuration validation;
+- implementation selection and invalid toggle values;
 - identity normalization, bounds, and hashing;
 - key construction;
-- script-result decoding and invariant checks;
+- multi-exec and script result decoding and invariant checks;
+- bounded transaction retry and watch cleanup behavior;
 - HTTP response and header mapping;
 - missing and invalid identity behavior; and
 - dependency-error mapping to HTTP 503.
@@ -415,7 +630,8 @@ past the interface to assert GLIDE internals.
 
 ### Integration tests
 
-Integration tests run against the requested real Valkey container and verify:
+The shared contract suite runs once with `multi-exec` and once with `lua`
+against the requested real Valkey container and verifies:
 
 - requests up to the limit are allowed;
 - the next request is denied;
@@ -428,15 +644,23 @@ Integration tests run against the requested real Valkey container and verify:
 - keys disappear after the inactivity window; and
 - GLIDE reconnect and dependency failures produce defined errors.
 
-The concurrency test calls the Valkey adapter from multiple threads and asserts
-that the atomic script never admits more than the configured limit.
+The multi-exec concurrency test uses multiple independent adapter/client
+instances so real `WATCH` conflicts occur; it asserts bounded retries and that
+no more than the configured limit is admitted. A separate same-client test
+proves the process-local mutex prevents overlapping watch sequences. The Lua
+concurrency test invokes the cached script from multiple threads and asserts
+the same admission bound.
+
+An equivalence test feeds both adapters the same scenarios and asserts the same
+allow/deny, remaining-capacity, cutoff, reset, and retry semantics without
+requiring identical internal command traces.
 
 ### Journey test
 
-The documented journey:
+The documented default journey, driven by `make demo`:
 
 1. starts Valkey and waits for health;
-2. starts Flask;
+2. starts Flask with `RATE_LIMIT_IMPLEMENTATION=multi-exec`;
 3. sends five requests for `demo-user` and observes HTTP 200;
 4. sends the sixth request and observes HTTP 429;
 5. verifies rate-limit and retry metadata;
@@ -444,9 +668,17 @@ The documented journey:
 7. sends another request and observes HTTP 200; and
 8. stops Flask and removes the Valkey container and generated state.
 
+The journey is then repeated with `RATE_LIMIT_IMPLEMENTATION=lua`. Documentation
+shows the one-line `.env` change and the application reports the selected
+implementation at startup.
+
 The default journey must complete within five minutes. CI uses a shorter
-test-only window while exercising the same real script and Valkey server-time
-path.
+test-only window while exercising both real implementations and Valkey
+server-time paths.
+
+The journey test asserts the plain `CI=1 make demo` path. Presentation rendering
+and VHS encoding are kept outside behavioral assertions, while the tape is
+validated statically.
 
 ## Capsule interface
 
@@ -454,13 +686,18 @@ The future implementation must provide:
 
 | Command | Responsibility |
 | --- | --- |
+| `make doctor` | Report required and optional tool availability without changing the host |
 | `make setup` | Install the pinned Python runtime and locked dependencies through uv |
 | `make start` | Start Valkey, wait for health, then start Flask |
+| `make demo` | Run the visible rate-limit journey and always clean up capsule-owned resources |
+| `make demo-record` | Validate the VHS tape and render the same journey to ignored media artifacts |
 | `make verify` | Run formatting, linting, type checking, unit, integration, and journey tests |
 | `make reset` | Remove rate-limit keys and restore deterministic demo state |
 | `make stop` | Stop processes and remove containers and generated state |
 
-`make stop` must remain safe after partial startup.
+`make stop` must remain safe after partial startup. Convenience targets extend
+the repository's required capsule interface; they do not replace its standard
+setup, start, verify, reset, and stop commands.
 
 ## Static quality gates
 
@@ -470,6 +707,8 @@ The implementation must run:
 - Ruff lint checks;
 - a configured static type checker;
 - pytest unit, integration, and journey suites;
+- shell lint for demo orchestration;
+- static validation of the VHS tape;
 - manifest and lockfile validation;
 - container and dependency scans; and
 - Markdown and link checks.
@@ -485,7 +724,9 @@ All checks use pinned dependencies and run through uv where applicable.
 - No credentials, tokens, or generated secrets are committed.
 - Local no-auth and no-TLS behavior carries a production warning.
 - Limit and window inputs are configuration, not request parameters.
-- The script validates numeric arguments before changing state.
+- Both adapters validate numeric arguments before changing state.
+- Multi-exec retries are bounded to prevent unbounded request work under
+  contention.
 - User input cannot select arbitrary keys or commands.
 - The development server is not presented as production-ready.
 - The design avoids publishing performance or denial-of-service resistance
@@ -504,6 +745,10 @@ Proposed clean-clone baseline:
 Download size and actual peak usage must be measured during implementation and
 recorded in `example.yaml`.
 
+The runtime budget excludes optional Homebrew and VHS installation. The README
+must separately report the measured download, disk, and render-time cost of the
+full `brew bundle` and `make demo-record` authoring path.
+
 ## Acceptance criteria
 
 Implementation may enter review only when:
@@ -511,11 +756,22 @@ Implementation may enter review only when:
 - the capsule follows the proposed path and contains no unrelated scaffolding;
 - Python 3.13 is the tested baseline and uv owns dependency execution;
 - Flask uses a process-lifetime GLIDE sync client;
-- Valkey runs from the requested tag pinned to an immutable digest;
-- the runtime path uses one atomic sorted-set script;
+- Valkey runs from `valkey/valkey:9-trixie` pinned to an immutable digest;
+- `.env.example` defaults to `RATE_LIMIT_IMPLEMENTATION=multi-exec`;
+- `brew bundle` installs the documented macOS demo and recording tools;
+- `make doctor` distinguishes core, presentation, and recording dependencies;
+- `make demo` completes the visible journey and cleans up after success,
+  failure, or interruption;
+- every user-visible demo request uses HTTPie and no curl fallback exists;
+- `CI=1 make demo` provides deterministic plain output suitable for CI;
+- `make demo-record` validates the tape and produces an ignored MP4 from the
+  same demo command;
+- `multi-exec` uses `WATCH` plus a bounded-retry atomic batch;
+- `lua` uses one atomic cached sorted-set script;
+- both implementations satisfy the same behavioral contract;
 - five requests are allowed and the sixth is denied under the default policy;
-- a real concurrent test proves that no more than the configured limit is
-  admitted;
+- real concurrent tests prove that neither implementation admits more than the
+  configured limit;
 - the key expires after the rolling window;
 - all response fields and failure modes are documented and tested;
 - the complete journey succeeds from a clean clone;
@@ -535,10 +791,19 @@ the requested sliding-window sorted-set pattern.
 Rejected because concurrent workers can interleave removal, counting, and
 insertion and admit too many requests.
 
-### Optimistic transaction with retries
+### Plain multi-exec without watch
 
-Rejected for the first demo because it introduces retry behavior and a larger
-interface without improving the single-key atomic script.
+Rejected because results from commands queued after `MULTI` are not available
+until `EXEC`, so the application cannot safely decide whether to queue `ZADD`.
+The accepted transaction implementation adds `WATCH`, pre-transaction reads,
+and bounded retries.
+
+### Only one atomic implementation
+
+Rejected because the requested example should teach both the client-side
+optimistic transaction and server-side scripting approaches behind the same
+small interface. The proposal does not claim that one is universally faster or
+more production-ready.
 
 ### Token bucket
 
@@ -551,11 +816,12 @@ Rejected because Flask is a synchronous WSGI adapter for this demo. The sync
 GLIDE package avoids per-request event-loop management and keeps the interface
 smaller.
 
-### Alpine-based Flask container
+### Alpine-based containers
 
-Rejected because the current GLIDE Python project explicitly identifies
-Alpine/musl as unsupported. The requested Alpine image is used for the Valkey
-server only.
+Rejected for this example. GLIDE's documented Alpine/musl limitation applies
+to the Python environment, not to the separate Valkey server process. The
+example still standardizes on the requested Debian Trixie server image to avoid
+mixed base-image guidance, and any future Flask image must be glibc-based.
 
 ## Open decisions
 
@@ -565,7 +831,7 @@ The following values must be recorded before implementation:
 2. primary and backup Python reviewers;
 3. exact Python 3.13 patch;
 4. exact Flask and `valkey-glide-sync` versions;
-5. resolved digest and semantic version behind `valkey/valkey:9-alpine`;
+5. resolved digest and semantic version behind `valkey/valkey:9-trixie`;
 6. final request timeout and resource limits;
 7. whether the initial compatibility matrix includes only standalone Valkey;
    and
@@ -574,9 +840,17 @@ The following values must be recorded before implementation:
 ## Primary-source basis
 
 - [Valkey GLIDE Python client overview](https://github.com/valkey-io/valkey-glide/blob/main/python/README.md)
+- [Valkey GLIDE synchronous command interface](https://github.com/valkey-io/valkey-glide/blob/main/python/glide-sync/glide_sync/sync_commands/core.py)
+- [Valkey GLIDE synchronous transaction interface](https://github.com/valkey-io/valkey-glide/blob/main/python/glide-sync/glide_sync/sync_commands/standalone_commands.py)
 - [Valkey GLIDE synchronous Lua script guide](https://github.com/valkey-io/valkey-glide/blob/main/docs/markdown/python/sync/lua-scripts-guide.md)
+- [Valkey transaction documentation](https://valkey.io/topics/transactions/)
+- [Valkey `WATCH` documentation](https://valkey.io/commands/watch/)
 - [Valkey sorted-set `ZADD` documentation](https://valkey.io/commands/zadd/)
 - [Valkey `ZCARD` documentation](https://valkey.io/commands/zcard/)
+- [Valkey `ZCOUNT` documentation](https://valkey.io/commands/zcount/)
 - [Valkey `ZREMRANGEBYSCORE` documentation](https://valkey.io/commands/zremrangebyscore/)
 - [Valkey `TIME` documentation](https://valkey.io/commands/time/)
 - [Valkey `PEXPIRE` documentation](https://valkey.io/commands/pexpire/)
+- [Homebrew Bundle and Brewfile documentation](https://docs.brew.sh/Brew-Bundle-and-Brewfile)
+- [Gum repository](https://github.com/charmbracelet/gum)
+- [VHS repository](https://github.com/charmbracelet/vhs)

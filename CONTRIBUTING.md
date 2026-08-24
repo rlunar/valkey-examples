@@ -55,6 +55,7 @@ Every capsule must contain:
 - `example.yaml`, validated by `schemas/example.schema.json`;
 - a `README.md` describing audience, prerequisites, learning objective,
   expected output, security limitations, and cleanup;
+- explanatory diagrams following the contract in `docs/authoring.md`;
 - a capsule-owned `Makefile`;
 - language-native version declarations, manifests, and lockfiles;
 - automated behavioral assertions against real Valkey; and

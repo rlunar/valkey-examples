@@ -40,6 +40,13 @@ body:
     validations:
       required: true
   - type: textarea
+    id: diagrams
+    attributes:
+      label: Architecture and behavior diagrams
+      description: Describe the Mermaid architecture, sequence, flow, state, or data diagrams that will explain the example.
+    validations:
+      required: true
+  - type: textarea
     id: versions
     attributes:
       label: Languages, clients, and versions
