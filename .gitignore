@@ -3,6 +3,10 @@
 .vscode/
 *.log
 
+!.kiro/
+!.kiro/steering/
+!.kiro/steering/*.md
+
 .env
 .env.*
 !.env.example

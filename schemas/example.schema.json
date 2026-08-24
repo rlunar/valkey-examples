@@ -48,6 +48,7 @@
         "messaging-and-streams",
         "migrations-and-integrations",
         "operations",
+        "rate-limiter",
         "search"
       ]
     },

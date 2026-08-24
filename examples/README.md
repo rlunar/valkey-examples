@@ -9,6 +9,7 @@ The initial controlled vocabulary is:
 - `messaging-and-streams`
 - `migrations-and-integrations`
 - `operations`
+- `rate-limiter`
 - `search`
 
 Adding or renaming a category requires maintainer approval. Frameworks, vendors,

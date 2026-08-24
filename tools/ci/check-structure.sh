@@ -6,6 +6,7 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repository_root"
 
 required_files=(
+  AGENTS.md
   README.md
   CONTRIBUTING.md
   MAINTAINERS.md

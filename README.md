@@ -29,6 +29,8 @@ Runnable examples must not be admitted until:
 
 See [MAINTAINERS.md](MAINTAINERS.md) and
 [COMPATIBILITY.md](COMPATIBILITY.md) for the remaining launch decisions.
+Candidate designs are tracked in [docs/proposals](docs/proposals/README.md)
+before implementation begins.
 
 ## Scope
 
@@ -60,6 +62,7 @@ purpose-built repositories.
 │   ├── messaging-and-streams/
 │   ├── migrations-and-integrations/
 │   ├── operations/
+│   ├── rate-limiter/
 │   └── search/
 ├── schemas/                  # manifest and compatibility contracts
 └── tools/                    # metadata, catalog, and CI tooling only
