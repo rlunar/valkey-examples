@@ -1,6 +1,6 @@
 ---
 proposal: Sliding-window rate limiter with Python, Flask, GLIDE, and Valkey
-status: Implemented
+status: Draft
 date: 2026-08-24
 kind: Demo
 capability: Rate limiter
@@ -15,9 +15,9 @@ Implement a focused Python demo that uses Flask, Valkey GLIDE, and a Valkey sort
 set to enforce a sliding-window request limit through two selectable atomic
 implementations: `WATCH`/`MULTI`/`EXEC` and server-side Lua.
 
-Implementation was authorized on 2026-08-24. The capsule remains in `candidate`
-status until maintainer and backup ownership, runtime CI, security scanning,
-and clean-clone reproduction are complete.
+Implementation is not yet authorized. This proposal remains in `Draft` until
+maintainer and backup ownership, runtime CI, security scanning, and clean-clone
+reproduction are complete.
 
 ## Summary
 
