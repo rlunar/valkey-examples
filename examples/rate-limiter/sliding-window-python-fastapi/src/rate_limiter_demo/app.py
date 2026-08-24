@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -55,7 +55,7 @@ def create_app(config: AppConfig | None = None, limiter: RateLimiter | None = No
     )
 
     @asynccontextmanager
-    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
         resolved_limiter: RateLimiter
         if limiter is not None:
             resolved_limiter = limiter
