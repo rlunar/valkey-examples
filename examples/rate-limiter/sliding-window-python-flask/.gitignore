@@ -1,0 +1,12 @@
+.artifacts/
+.cache/
+.coverage
+.env
+.pytest_cache/
+.ruff_cache/
+.runtime/
+.venv/
+__pycache__/
+coverage.xml
+htmlcov/
+*.pyc
