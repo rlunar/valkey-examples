@@ -1,0 +1,39 @@
+schema_version: 1
+id: cache-aside-python
+title: Cache-aside with safe invalidation
+kind: cookbook
+capability: caching
+languages:
+  - python
+owners:
+  primary: github-handle
+  backup: second-github-handle
+status: candidate
+valkey:
+  versions:
+    - "9.0"
+  # Replace the zero digest with the immutable digest of the selected image.
+  image: valkey/valkey:9.0.0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+clients:
+  - name: valkey-py
+    version: replace-with-exact-version
+runtime:
+  setup: make setup
+  start: make start
+  verify: make verify
+  reset: make reset
+  stop: make stop
+  timeout_seconds: 600
+resources:
+  cpu_cores: 2
+  memory_mb: 2048
+  disk_mb: 4096
+  download_mb: 1024
+credentials:
+  required_for_default: false
+network:
+  external_downloads_after_setup: false
+upstream:
+  project_url: null
+  minimum_version: null
+security_exceptions: []

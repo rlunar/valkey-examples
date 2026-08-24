@@ -1,0 +1,76 @@
+name: Example proposal
+description: Propose a cookbook, focused demo, or sample application.
+title: "[Proposal] "
+labels:
+  - proposal
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Proposals are reviewed before implementation. Scope approval does not guarantee merge.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Example kind
+      options:
+        - Cookbook
+        - Focused demo
+        - Sample application
+    validations:
+      required: true
+  - type: input
+    id: capability
+    attributes:
+      label: Valkey capability
+      description: Use a Valkey learning goal, not a framework or vendor name.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observable behavior
+      description: What will the user run, observe, and verify?
+    validations:
+      required: true
+  - type: textarea
+    id: path
+    attributes:
+      label: Credential-free local journey
+      description: Include setup, start, verification, reset, and cleanup.
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Languages, clients, and versions
+      description: List proposed Valkey, client, runtime, framework, data, and model versions.
+    validations:
+      required: true
+  - type: textarea
+    id: resources
+    attributes:
+      label: Resource budget
+      description: State expected CPU, memory, disk, download, and elapsed-time requirements.
+    validations:
+      required: true
+  - type: textarea
+    id: ownership
+    attributes:
+      label: Owners and reviewers
+      description: Name primary and backup content owners and qualified reviewers.
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and production limitations
+      description: Identify simplified settings, data sensitivity, exposed ports, credentials, and production differences.
+    validations:
+      required: true
+  - type: textarea
+    id: lifecycle
+    attributes:
+      label: Lifecycle and retirement
+      description: Explain maintenance expectations and the archive or migration destination.
+    validations:
+      required: true

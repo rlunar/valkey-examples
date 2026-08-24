@@ -1,0 +1,11 @@
+exclude = [
+  "http://localhost.*",
+  "http://127\\.0\\.0\\.1.*",
+  "https://github.com/.*/edit/",
+  "https://github.com/.*/new/",
+  "https://github.com/.*/security/advisories/new",
+]
+
+accept = [200, 204, 206, 301, 302, 307, 308]
+timeout = 30
+max_concurrency = 5
