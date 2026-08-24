@@ -42,6 +42,13 @@ done < <(find examples -type f -name example.yaml -print0)
 empty_directories="$(
   find . \
     -path ./.git -prune -o \
+    -path '*/.artifacts' -prune -o \
+    -path '*/.cache' -prune -o \
+    -path '*/.pytest_cache' -prune -o \
+    -path '*/.ruff_cache' -prune -o \
+    -path '*/.runtime' -prune -o \
+    -path '*/.venv' -prune -o \
+    -path '*/__pycache__' -prune -o \
     -type d -empty -print
 )"
 
