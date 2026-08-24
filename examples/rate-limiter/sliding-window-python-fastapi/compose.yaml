@@ -1,0 +1,21 @@
+name: valkey-example-sliding-window-python-fastapi
+
+services:
+  valkey:
+    image: valkey/valkey:9-trixie@sha256:70739f85ad2ee01a726a965584a0f94895f01b0c60b3cc8b0aeef11eaa6888cf
+    command:
+      - valkey-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    labels:
+      io.valkey.examples.capsule: sliding-window-python-fastapi
+    ports:
+      - "127.0.0.1:${VALKEY_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+    restart: "no"
