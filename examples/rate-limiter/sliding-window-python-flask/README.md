@@ -128,9 +128,9 @@ cp .env.example .env
 | `FLASK_HOST` | `127.0.0.1` | Flask bind address |
 | `FLASK_PORT` | `8000` | Flask bind port |
 
-Policy values are validated in `src/rate_limiter_demo/config.py`, assembled
-into a `RateLimitPolicy` in `app.py`, and supplied to the selected adapter for
-every request.
+Policy values are validated by the immutable `pydantic-settings` model in
+`src/rate_limiter_demo/config.py`, assembled into a `RateLimitPolicy` in
+`app.py`, and supplied to the selected adapter for every request.
 
 ## Manual use
 

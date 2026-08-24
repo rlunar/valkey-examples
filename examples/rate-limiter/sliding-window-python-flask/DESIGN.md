@@ -7,7 +7,7 @@ atomicity techniques directly comparable behind one Python interface.
 
 The implementation uses Python 3.13+, uv, Flask, synchronous Valkey GLIDE, and
 Valkey 9.1.1 on the pinned Trixie image. `multi-exec` is the default; `lua` is
-selected through configuration.
+selected through an immutable `pydantic-settings` configuration model.
 
 ## Components
 

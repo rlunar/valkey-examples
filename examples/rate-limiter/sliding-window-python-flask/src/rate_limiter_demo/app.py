@@ -40,7 +40,7 @@ def _decision_response(decision: RateLimitDecision) -> tuple[Response, int]:
 
 
 def create_app(config: AppConfig | None = None, limiter: RateLimiter | None = None) -> Flask:
-    runtime_config = config or AppConfig.from_env()
+    runtime_config = config or AppConfig()
     runtime_limiter = limiter or _build_limiter(runtime_config)
     policy = RateLimitPolicy(
         policy_id=runtime_config.policy_id,
@@ -91,7 +91,7 @@ def create_app(config: AppConfig | None = None, limiter: RateLimiter | None = No
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
-    config = AppConfig.from_env()
+    config = AppConfig()
     app = create_app(config)
     limiter = app.extensions["rate_limiter"]
     atexit.register(limiter.close)

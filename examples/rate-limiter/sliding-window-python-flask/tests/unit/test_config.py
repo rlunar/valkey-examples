@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
-from rate_limiter_demo.config import AppConfig, ConfigurationError
+import pytest
+from pydantic import ValidationError
+
+from rate_limiter_demo.config import AppConfig
 
 
 def test_defaults_to_multi_exec(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -13,7 +16,7 @@ def test_defaults_to_multi_exec(monkeypatch: pytest.MonkeyPatch) -> None:
     ):
         monkeypatch.delenv(name, raising=False)
 
-    config = AppConfig.from_env()
+    config = AppConfig(_env_file=None)
 
     assert config.implementation == "multi-exec"
     assert config.request_limit == 5
@@ -25,7 +28,7 @@ def test_reads_lua_policy_from_environment(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setenv("RATE_LIMIT_REQUESTS", "17")
     monkeypatch.setenv("RATE_LIMIT_WINDOW_MS", "2500")
 
-    config = AppConfig.from_env()
+    config = AppConfig(_env_file=None)
 
     assert config.implementation == "lua"
     assert config.request_limit == 17
@@ -33,23 +36,44 @@ def test_reads_lua_policy_from_environment(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 @pytest.mark.parametrize(
-    ("name", "value", "message"),
+    ("name", "value"),
     [
-        ("RATE_LIMIT_IMPLEMENTATION", "pipeline", "multi-exec"),
-        ("RATE_LIMIT_REQUESTS", "zero", "integer"),
-        ("RATE_LIMIT_REQUESTS", "0", "between"),
-        ("RATE_LIMIT_WINDOW_MS", "99", "between"),
+        ("RATE_LIMIT_IMPLEMENTATION", "pipeline"),
+        ("RATE_LIMIT_REQUESTS", "zero"),
+        ("RATE_LIMIT_REQUESTS", "0"),
+        ("RATE_LIMIT_WINDOW_MS", "99"),
     ],
 )
 def test_rejects_invalid_environment(
-    monkeypatch: pytest.MonkeyPatch, name: str, value: str, message: str
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
 ) -> None:
     monkeypatch.setenv(name, value)
 
-    with pytest.raises(ConfigurationError, match=message):
-        AppConfig.from_env()
+    with pytest.raises(ValidationError) as raised:
+        AppConfig(_env_file=None)
+
+    assert raised.value.errors()[0]["loc"] == (name,)
 
 
 def test_rejects_invalid_policy_slug() -> None:
-    with pytest.raises(ConfigurationError, match="lowercase slug"):
-        AppConfig(policy_id="Not Valid")
+    with pytest.raises(ValidationError):
+        AppConfig(policy_id="Not Valid", _env_file=None)
+
+
+def test_environment_takes_precedence_over_dotenv(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("RATE_LIMIT_REQUESTS=7\n", encoding="utf-8")
+    monkeypatch.setenv("RATE_LIMIT_REQUESTS", "9")
+
+    config = AppConfig(_env_file=dotenv)
+
+    assert config.request_limit == 9
+
+
+def test_is_immutable() -> None:
+    config = AppConfig(_env_file=None)
+
+    with pytest.raises(ValidationError):
+        config.request_limit = 10
