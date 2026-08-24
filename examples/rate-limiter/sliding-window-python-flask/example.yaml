@@ -1,0 +1,38 @@
+schema_version: 1
+id: sliding-window-python-flask
+title: Sliding-window rate limiter with Python and Flask
+kind: demo
+capability: rate-limiter
+languages:
+  - python
+owners:
+  primary: rlunar
+  backup: valkey-io
+status: candidate
+valkey:
+  versions:
+    - "9.1.1"
+  image: valkey/valkey:9-trixie@sha256:70739f85ad2ee01a726a965584a0f94895f01b0c60b3cc8b0aeef11eaa6888cf
+clients:
+  - name: valkey-glide-sync
+    version: "2.5.1"
+runtime:
+  setup: make setup
+  start: make start
+  verify: make verify
+  reset: make reset
+  stop: make stop
+  timeout_seconds: 600
+resources:
+  cpu_cores: 2
+  memory_mb: 1024
+  disk_mb: 2048
+  download_mb: 1024
+credentials:
+  required_for_default: false
+network:
+  external_downloads_after_setup: false
+upstream:
+  project_url: null
+  minimum_version: null
+security_exceptions: []

@@ -9,15 +9,14 @@ proposed_path: examples/rate-limiter/sliding-window-python-flask
 
 # Design Proposal: Sliding-Window Rate Limiter
 
-## Decision requested
+## Decision
 
-Approve a focused Python demo that uses Flask, Valkey GLIDE, and a Valkey sorted
+Implement a focused Python demo that uses Flask, Valkey GLIDE, and a Valkey sorted
 set to enforce a sliding-window request limit through two selectable atomic
 implementations: `WATCH`/`MULTI`/`EXEC` and server-side Lua.
 
-Approval authorizes implementation planning only. The capsule must remain in
-`candidate` status until owners, reviewers, exact dependency versions, the
-Valkey image digest, runtime CI, security scanning, and clean-clone
+Implementation is not yet authorized. This proposal remains in `Draft` until
+maintainer and backup ownership, runtime CI, security scanning, and clean-clone
 reproduction are complete.
 
 ## Summary
@@ -93,7 +92,7 @@ The first version will not:
 - commit generated GIF, MP4, WebM, or terminal-frame artifacts; or
 - claim that the example is a production-certified rate limiter.
 
-## Proposed capsule
+## Implemented capsule
 
 ```text
 examples/rate-limiter/sliding-window-python-flask/
@@ -111,8 +110,14 @@ examples/rate-limiter/sliding-window-python-flask/
 ├── demo/
 │   └── sliding-window.tape
 ├── scripts/
+│   ├── common.sh
 │   ├── demo.sh
-│   └── doctor.sh
+│   ├── doctor.sh
+│   ├── reset.sh
+│   ├── start.sh
+│   ├── stop.sh
+│   ├── test-real.sh
+│   └── wait_for_http.py
 ├── src/
 │   └── rate_limiter_demo/
 │       ├── __init__.py
@@ -134,8 +139,7 @@ examples/rate-limiter/sliding-window-python-flask/
     └── journey/
 ```
 
-The proposal document will become the capsule's `DESIGN.md` when implementation
-is approved.
+The capsule includes a reader-focused `DESIGN.md` derived from this proposal.
 
 Directories will be added only when they contain required files. No shared
 repository runtime package will be introduced.
@@ -176,13 +180,15 @@ clearly marks VHS as optional.
 3. starts Valkey and Flask and waits on health checks;
 4. reports the selected `multi-exec` or `lua` implementation;
 5. displays the selected implementation source and relevant manifest metadata;
-6. uses HTTPie to send five allowed requests and format their status, headers,
-   and JSON;
-7. uses HTTPie to send the sixth request and highlight HTTP 429 and
+6. uses HTTPie to send five allowed requests for identity A and format their
+   status, headers, and JSON;
+7. uses HTTPie to send identity A's sixth request and highlight HTTP 429 and
    `Retry-After`;
-8. displays the bounded sorted-set state without exposing the raw identity;
-9. waits through bounded polling and demonstrates the next allowed request; and
-10. calls `make stop` from an exit trap, including after interruption or
+8. sends a request for identity B and observes HTTP 200, proving isolation;
+9. displays the bounded sorted-set state without exposing either raw identity;
+10. follows server-provided retry intervals through bounded polling and
+    demonstrates identity A's next allowed request; and
+11. calls `make stop` from an exit trap, including after interruption or
     partial failure.
 
 HTTPie is required for `make demo`. Every user-visible HTTP request uses the
@@ -509,16 +515,20 @@ sliding window.
 
 Configuration will be provided through environment variables:
 
+The application maps and validates these values through one immutable
+`pydantic-settings` model. Process environment values take precedence over the
+optional local `.env` file.
+
 | Setting | Default | Constraint |
 | --- | --- | --- |
 | `VALKEY_HOST` | `127.0.0.1` | Non-empty hostname |
 | `VALKEY_PORT` | `6379` | Valid TCP port |
 | `GLIDE_REQUEST_TIMEOUT_MS` | `500` | Positive and bounded |
 | `RATE_LIMIT_IMPLEMENTATION` | `multi-exec` | `multi-exec` or `lua` |
-| `RATE_LIMIT_TRANSACTION_MAX_RETRIES` | `8` | Positive and bounded |
+| `RATE_LIMIT_MAX_RETRIES` | `50` | Positive and bounded |
 | `RATE_LIMIT_REQUESTS` | `5` | Positive and bounded |
 | `RATE_LIMIT_WINDOW_MS` | `10000` | Positive and bounded |
-| `RATE_LIMIT_POLICY_ID` | `demo` | Lower-case bounded slug |
+| `RATE_LIMIT_POLICY_ID` | `default` | Lower-case bounded slug |
 | `RATE_LIMIT_KEY_PREFIX` | `valkey-examples:rate-limit:v1` | Fixed by default |
 | `FLASK_HOST` | `127.0.0.1` | Loopback default |
 | `FLASK_PORT` | `8000` | Valid TCP port |
@@ -536,8 +546,7 @@ unknown policy.
 ### Python and uv
 
 - `requires-python` declares Python 3.13 as the minimum.
-- `.python-version` records the exact tested Python 3.13 patch selected during
-  implementation.
+- `.python-version` records the tested Python `3.13.12` patch.
 - `uv.lock` is committed.
 - setup uses `uv sync --frozen`.
 - all Python commands run through `uv run`.
@@ -548,8 +557,7 @@ passes.
 
 ### Flask
 
-Flask is the synchronous HTTP adapter. Its exact released version is selected
-and locked during implementation.
+Flask `3.1.3` is the synchronous HTTP adapter and is locked in `uv.lock`.
 
 The built-in development server is used only for the local educational journey.
 The README will explicitly state that it is not a production server.
@@ -570,7 +578,7 @@ does not invoke curl.
 The capsule uses the `valkey-glide-sync` distribution and the `glide_sync`
 import namespace.
 
-The exact released version is selected and locked during implementation.
+The exact released version is `2.5.1` and is recorded in the lockfile.
 The multi-exec adapter uses GLIDE's synchronous `watch`, sorted-set commands,
 `Batch(is_atomic=True)`, `exec`, and `unwatch` interfaces. The Lua adapter uses
 the cached `Script` interface. Direct sorted-set calls may also be used for test
@@ -578,10 +586,10 @@ inspection.
 
 ### Valkey container
 
-The Compose service uses the requested `valkey/valkey:9-trixie` image and records
-the resolved immutable digest:
+The Compose service uses Valkey 9.1.1 through the requested
+`valkey/valkey:9-trixie` image and records the resolved immutable digest:
 
-`valkey/valkey:9-trixie@sha256:<resolved-digest>`
+`valkey/valkey:9-trixie@sha256:70739f85ad2ee01a726a965584a0f94895f01b0c60b3cc8b0aeef11eaa6888cf`
 
 This preserves the requested Valkey 9 Debian Trixie tag while satisfying the
 repository's immutable-image requirement.
@@ -661,12 +669,13 @@ The documented default journey, driven by `make demo`:
 
 1. starts Valkey and waits for health;
 2. starts Flask with `RATE_LIMIT_IMPLEMENTATION=multi-exec`;
-3. sends five requests for `demo-user` and observes HTTP 200;
-4. sends the sixth request and observes HTTP 429;
-5. verifies rate-limit and retry metadata;
-6. waits for the reported reset using bounded polling;
-7. sends another request and observes HTTP 200; and
-8. stops Flask and removes the Valkey container and generated state.
+3. sends five requests for `demo-user-a` and observes HTTP 200;
+4. sends identity A's sixth request and observes HTTP 429;
+5. sends a request for `demo-user-b` and observes HTTP 200;
+6. verifies rate-limit, retry, and isolated sorted-set state;
+7. follows server-provided retry intervals through bounded polling;
+8. sends another identity A request and observes HTTP 200; and
+9. stops Flask and removes the Valkey container and generated state.
 
 The journey is then repeated with `RATE_LIMIT_IMPLEMENTATION=lua`. Documentation
 shows the one-line `.env` change and the application reports the selected
@@ -823,19 +832,15 @@ to the Python environment, not to the separate Valkey server process. The
 example still standardizes on the requested Debian Trixie server image to avoid
 mixed base-image guidance, and any future Flask image must be glibc-based.
 
-## Open decisions
+## Remaining promotion decisions
 
-The following values must be recorded before implementation:
+The following values must be recorded before promotion from `candidate`:
 
 1. primary and backup content owners;
 2. primary and backup Python reviewers;
-3. exact Python 3.13 patch;
-4. exact Flask and `valkey-glide-sync` versions;
-5. resolved digest and semantic version behind `valkey/valkey:9-trixie`;
-6. final request timeout and resource limits;
-7. whether the initial compatibility matrix includes only standalone Valkey;
+3. whether the initial compatibility matrix includes only standalone Valkey;
    and
-8. the reviewer responsible for the clean-clone reproduction.
+4. the reviewer responsible for the clean-clone reproduction.
 
 ## Primary-source basis
 

@@ -6,3 +6,9 @@ related admission-control policies belong here.
 The primary learning objective must remain Valkey-backed rate limiting.
 Authentication, gateway products, and generic web-framework tutorials are out
 of scope.
+
+## Examples
+
+- [Sliding-window rate limiter with Python and Flask](sliding-window-python-flask/)
+  — compares atomic `WATCH`/`MULTI`/`EXEC` and Lua implementations through one
+  HTTP contract.

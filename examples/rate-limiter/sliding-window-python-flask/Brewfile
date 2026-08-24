@@ -1,0 +1,8 @@
+brew "bat"
+brew "gum"
+brew "httpie"
+brew "jq"
+brew "shellcheck"
+brew "uv"
+brew "vhs"
+brew "yq"
