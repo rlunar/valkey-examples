@@ -25,7 +25,7 @@ async def test_concurrent_requests_never_over_admit(implementation: str) -> None
 
     async def invoke(index: int) -> bool:
         decision = await limiters[index % len(limiters)].check(
-            "shared-identity", policy, uuid.uuid4().hex
+            "shared-identity", policy, uuid.uuid7().hex
         )
         return decision.allowed
 

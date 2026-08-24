@@ -21,7 +21,7 @@ async def test_limit_identity_isolation_ttl_and_expiry(
     policy = RateLimitPolicy("contract", limit=5, window_ms=300)
 
     decisions = [
-        await limiter.check("identity-a", policy, uuid.uuid4().hex) for _request in range(6)
+        await limiter.check("identity-a", policy, uuid.uuid7().hex) for _request in range(6)
     ]
 
     assert [decision.allowed for decision in decisions] == [
@@ -35,7 +35,7 @@ async def test_limit_identity_isolation_ttl_and_expiry(
     assert decisions[-1].remaining == 0
     assert 1 <= decisions[-1].retry_after_ms <= policy.window_ms
 
-    isolated = await limiter.check("identity-b", policy, uuid.uuid4().hex)
+    isolated = await limiter.check("identity-b", policy, uuid.uuid7().hex)
     assert isolated.allowed is True
     assert isolated.remaining == 4
 
@@ -45,5 +45,5 @@ async def test_limit_identity_isolation_ttl_and_expiry(
     assert 0 < ttl <= policy.window_ms
 
     time.sleep((decisions[-1].retry_after_ms + 50) / 1_000)
-    after_window = await limiter.check("identity-a", policy, uuid.uuid4().hex)
+    after_window = await limiter.check("identity-a", policy, uuid.uuid7().hex)
     assert after_window.allowed is True

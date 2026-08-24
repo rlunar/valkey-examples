@@ -32,7 +32,7 @@ cat >"$fake_bin/uv" <<'EOF'
 if [[ "${1:-}" == "--version" ]]; then
   printf 'uv 0.0.0-test\n'
 elif [[ "${1:-}" == "python" && "${2:-}" == "find" ]]; then
-  printf '/tmp/python3.13-test\n'
+  printf '/tmp/python3.14-test\n'
 fi
 EOF
 

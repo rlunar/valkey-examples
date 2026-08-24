@@ -23,7 +23,7 @@ docker compose version >/dev/null
 docker info >/dev/null
 
 printf 'uv:      %s\n' "$(uv --version)"
-printf 'python:  %s\n' "$(uv python find 3.13)"
+printf 'python:  %s\n' "$(uv python find 3.14)"
 printf 'docker:  %s\n' "$(docker --version)"
 printf 'compose: %s\n' "$(docker compose version --short)"
 printf 'httpie:  %s\n' "$(http --version | head -1)"

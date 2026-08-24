@@ -55,7 +55,7 @@ def create_app(config: AppConfig | None = None, limiter: RateLimiter | None = No
     )
 
     @asynccontextmanager
-    async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+    async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
         resolved_limiter: RateLimiter
         if limiter is not None:
             resolved_limiter = limiter
@@ -91,7 +91,7 @@ def create_app(config: AppConfig | None = None, limiter: RateLimiter | None = No
         try:
             identity = normalize_identity(x_client_id or "")
             decision = await request.app.state.limiter.check(
-                identity, request.app.state.policy, uuid.uuid4().hex
+                identity, request.app.state.policy, uuid.uuid7().hex
             )
         except InvalidIdentity:
             return JSONResponse(

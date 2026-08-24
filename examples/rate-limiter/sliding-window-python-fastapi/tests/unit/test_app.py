@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -26,7 +28,7 @@ class FakeLimiter:
         if self.dependency_failure:
             raise RateLimitDependencyError("unavailable")
         assert identity
-        assert request_id
+        assert uuid.UUID(hex=request_id).version == 7
         assert policy.limit == 5
         assert self.decision is not None
         return self.decision

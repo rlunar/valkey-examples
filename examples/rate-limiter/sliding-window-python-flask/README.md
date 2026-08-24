@@ -51,7 +51,7 @@ plain and CI output when Gum styling is disabled.
 flowchart LR
     caller["HTTPie client"]
 
-    subgraph host["Host: Python 3.13+ managed by uv"]
+    subgraph host["Host: Python 3.14+ managed by uv"]
         flask["Flask HTTP adapter"]
         config[".env configuration"]
         contract["RateLimiter contract"]
