@@ -74,6 +74,70 @@ For server time `now`, window `W`, and limit `L`:
 An event exactly on the lower boundary is expired. The represented interval is
 `(now - W, now]`.
 
+## Implementation pseudocode
+
+The following Python-like pseudocode intentionally omits GLIDE result types,
+Flask response construction, logging, and defensive error handling. It shows
+how the implementation fits together without replacing the runnable source.
+
+### Startup and HTTP request
+
+```python
+settings = AppConfig()  # validates environment variables and optional .env
+client = create_glide_client(settings)
+
+if settings.implementation == "lua":
+    limiter = LuaRateLimiter(client)
+else:
+    limiter = MultiExecRateLimiter(client)
+
+policy = RateLimitPolicy(
+    policy_id=settings.policy_id,
+    limit=settings.request_limit,
+    window_ms=settings.window_ms,
+)
+
+
+def get_limited_resource(request):
+    identity = validate(request.header["X-Client-ID"])
+    request_id = random_unique_id()
+
+    try:
+        decision = limiter.check(identity, policy, request_id)
+    except RateLimitDependencyError:
+        return json({"error": "rate-limit dependency unavailable"}, status=503)
+
+    if decision.allowed:
+        return json(decision, status=200, rate_limit_headers=decision)
+
+    return json(
+        decision,
+        status=429,
+        rate_limit_headers=decision,
+        retry_after=decision.retry_after,
+    )
+```
+
+### Shared key and decision
+
+```python
+def key_for(identity, policy):
+    identity_hash = sha256(identity)
+    return f"{KEY_PREFIX}:{policy.policy_id}:{identity_hash}"
+
+
+def build_decision(allowed, count, oldest_timestamp, now, policy):
+    reset_after = max(0, oldest_timestamp + policy.window_ms - now)
+
+    return Decision(
+        allowed=allowed,
+        limit=policy.limit,
+        remaining=max(0, policy.limit - count),
+        reset_after_ms=reset_after,
+        retry_after_ms=0 if allowed else max(1, reset_after),
+    )
+```
+
 ## Multi-exec implementation
 
 ```mermaid
@@ -105,6 +169,50 @@ connection. Independent clients still contend correctly through Valkey.
 After `RATE_LIMIT_MAX_RETRIES` conflicts, the adapter fails closed instead of
 over-admitting.
 
+Simplified transaction pseudocode:
+
+```python
+def check(identity, policy, request_id):
+    key = key_for(identity, policy)
+
+    with connection_lock:
+        for attempt in range(MAX_RETRIES):
+            watch(key)
+
+            now = valkey_time_ms()
+            cutoff = now - policy.window_ms
+            count = zcount(key, scores_greater_than=cutoff)
+            allowed = count < policy.limit
+
+            transaction = begin_transaction()
+            transaction.remove_scores(key, up_to=cutoff)
+
+            if allowed:
+                transaction.add(
+                    key,
+                    member=f"{now}:{request_id}",
+                    score=now,
+                )
+                transaction.expire(key, policy.window_ms)
+
+            transaction.read_count(key)
+            transaction.read_oldest_score(key)
+            result = transaction.execute()
+
+            if result.conflicted:
+                continue
+
+            return build_decision(
+                allowed=allowed,
+                count=result.count,
+                oldest_timestamp=result.oldest_score,
+                now=now,
+                policy=policy,
+            )
+
+    raise RateLimitDependencyError("transaction retry limit exceeded")
+```
+
 ## Lua implementation
 
 ```mermaid
@@ -129,6 +237,45 @@ sequenceDiagram
 Valkey executes the script atomically. GLIDE retains the `Script` object so the
 client can use its cached SHA and recover when the server does not yet have the
 script loaded.
+
+The real implementation is Lua, but its atomic server-side behavior can be
+read as this Python-like pseudocode:
+
+```python
+def atomic_script(key, limit, window_ms, request_id):
+    now = valkey_time_ms()
+    cutoff = now - window_ms
+
+    zremrangebyscore(key, negative_infinity, cutoff)
+    count = zcard(key)
+    allowed = count < limit
+
+    if allowed:
+        zadd(key, member=f"{now}:{request_id}", score=now)
+        pexpire(key, window_ms)
+        count += 1
+
+    oldest_timestamp = first_score(key, fallback=now)
+    reset_after = max(0, oldest_timestamp + window_ms - now)
+
+    return {
+        "allowed": allowed,
+        "limit": limit,
+        "remaining": max(0, limit - count),
+        "reset_after_ms": reset_after,
+        "retry_after_ms": 0 if allowed else max(1, reset_after),
+    }
+
+
+def check(identity, policy, request_id):
+    key = key_for(identity, policy)
+    result = glide.invoke_script(
+        atomic_script,
+        keys=[key],
+        args=[policy.limit, policy.window_ms, request_id],
+    )
+    return Decision.from_script_result(result)
+```
 
 ## HTTP and failure contract
 
