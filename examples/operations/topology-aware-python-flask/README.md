@@ -30,11 +30,19 @@ The primary implementation is
 GLIDE configuration, Sentinel discovery, byte decoding, reconnect behavior,
 and topology reporting behind the `CounterStore` interface.
 
+## Documentation
+
+- [Design and pseudocode](docs/DESIGN.md)
+- [Step-by-step demo runbook](docs/DEMO.md)
+- [Build-from-scratch video tutorial](docs/TUTORIAL.md)
+
 ## Prerequisites
 
 - Docker with Docker Compose;
 - Python 3.14.7;
-- [uv](https://docs.astral.sh/uv/) 0.12.5 or newer; and
+- [uv](https://docs.astral.sh/uv/) 0.12.5 or newer;
+- Make and ShellCheck for verification;
+- HTTPie, jq, and bat for the presenter-facing CLI commands; and
 - approximately 4 CPU cores, 2 GB memory, 3 GB disk, and 1.5 GB of first-run
   downloads.
 
@@ -167,7 +175,8 @@ application owns only the Sentinel rediscovery step that GLIDE does not provide.
 
 The object model is intentionally small. The two behavior-rich classes are the
 store and the Flask adapter; configuration and response models carry data.
-See [DESIGN.md](DESIGN.md) for the design rationale and extension points.
+See the [design notes](docs/DESIGN.md) for the rationale, pseudocode, and
+extension points.
 
 ## Configuration
 

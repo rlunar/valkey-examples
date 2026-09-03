@@ -87,11 +87,14 @@ examples/operations/topology-aware-python-flask/
 ├── .env.example
 ├── .gitignore
 ├── .python-version
-├── DESIGN.md
 ├── Dockerfile
 ├── Makefile
 ├── README.md
 ├── compose.yaml
+├── docs/
+│   ├── DEMO.md
+│   ├── DESIGN.md
+│   └── TUTORIAL.md
 ├── example.yaml
 ├── infra/
 │   └── sentinel/

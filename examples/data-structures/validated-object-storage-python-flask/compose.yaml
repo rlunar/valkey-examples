@@ -1,0 +1,196 @@
+name: valkey-example-validated-object-storage-python-flask
+
+x-valkey: &valkey
+  image: valkey/valkey:9.1.1-trixie@sha256:64e361b630ecf18dff7ca4df6a88e6eafc193687eb48cff2c7e0a293ab67d29a
+  restart: "no"
+  networks:
+    - demo
+  security_opt:
+    - no-new-privileges:true
+  healthcheck:
+    test: ["CMD", "valkey-cli", "-h", "127.0.0.1", "-p", "6379", "ping"]
+    interval: 1s
+    timeout: 1s
+    retries: 30
+    start_period: 2s
+
+x-cluster-node: &cluster-node
+  <<: *valkey
+  command:
+    - /bin/sh
+    - -c
+    - >-
+      exec valkey-server
+      --appendonly no
+      --save ""
+      --protected-mode no
+      --cluster-enabled yes
+      --cluster-config-file /data/nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-hostname "$${HOSTNAME}"
+      --cluster-announce-port 6379
+      --cluster-announce-bus-port 16379
+      --cluster-preferred-endpoint-type hostname
+  tmpfs:
+    - /data
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: valkey-example-validated-object-storage-python-flask:local
+  restart: "no"
+  init: true
+  networks:
+    - demo
+  security_opt:
+    - no-new-privileges:true
+  env_file:
+    - path: .env
+      required: false
+  ports:
+    - 127.0.0.1:${FLASK_PORT:-8000}:${FLASK_PORT:-8000}
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - >-
+        import os, urllib.request;
+        urllib.request.urlopen(
+        f"http://127.0.0.1:{os.environ['FLASK_PORT']}/",
+        timeout=2)
+    interval: 1s
+    timeout: 3s
+    retries: 60
+    start_period: 3s
+
+services:
+  standalone-primary:
+    <<: *valkey
+    profiles: ["standalone"]
+    command:
+      - valkey-server
+      - --appendonly
+      - "no"
+      - --save
+      - ""
+      - --protected-mode
+      - "no"
+    tmpfs:
+      - /data
+
+  standalone-replica:
+    <<: *valkey
+    profiles: ["standalone"]
+    command:
+      - valkey-server
+      - --appendonly
+      - "no"
+      - --save
+      - ""
+      - --protected-mode
+      - "no"
+      - --replicaof
+      - standalone-primary
+      - "6379"
+    tmpfs:
+      - /data
+    depends_on:
+      standalone-primary:
+        condition: service_healthy
+
+  app-standalone:
+    <<: *app
+    profiles: ["standalone"]
+    environment:
+      FLASK_HOST: ${FLASK_HOST:-0.0.0.0}
+      FLASK_PORT: ${FLASK_PORT:-8000}
+      VALKEY_ADDRESSES: standalone-primary:6379,standalone-replica:6379
+      VALKEY_MODE: standalone
+    depends_on:
+      standalone-primary:
+        condition: service_healthy
+      standalone-replica:
+        condition: service_healthy
+
+  cluster-node-1:
+    <<: *cluster-node
+    profiles: ["cluster"]
+    hostname: cluster-node-1
+
+  cluster-node-2:
+    <<: *cluster-node
+    profiles: ["cluster"]
+    hostname: cluster-node-2
+
+  cluster-node-3:
+    <<: *cluster-node
+    profiles: ["cluster"]
+    hostname: cluster-node-3
+
+  cluster-node-4:
+    <<: *cluster-node
+    profiles: ["cluster"]
+    hostname: cluster-node-4
+
+  cluster-node-5:
+    <<: *cluster-node
+    profiles: ["cluster"]
+    hostname: cluster-node-5
+
+  cluster-node-6:
+    <<: *cluster-node
+    profiles: ["cluster"]
+    hostname: cluster-node-6
+
+  cluster-init:
+    image: valkey/valkey:9.1.1-trixie@sha256:64e361b630ecf18dff7ca4df6a88e6eafc193687eb48cff2c7e0a293ab67d29a
+    profiles: ["cluster"]
+    restart: "no"
+    command:
+      - valkey-cli
+      - --cluster
+      - create
+      - cluster-node-1:6379
+      - cluster-node-2:6379
+      - cluster-node-3:6379
+      - cluster-node-4:6379
+      - cluster-node-5:6379
+      - cluster-node-6:6379
+      - --cluster-replicas
+      - "1"
+      - --cluster-yes
+    networks:
+      - demo
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      cluster-node-1:
+        condition: service_healthy
+      cluster-node-2:
+        condition: service_healthy
+      cluster-node-3:
+        condition: service_healthy
+      cluster-node-4:
+        condition: service_healthy
+      cluster-node-5:
+        condition: service_healthy
+      cluster-node-6:
+        condition: service_healthy
+
+  app-cluster:
+    <<: *app
+    profiles: ["cluster"]
+    environment:
+      FLASK_HOST: ${FLASK_HOST:-0.0.0.0}
+      FLASK_PORT: ${FLASK_PORT:-8000}
+      VALKEY_ADDRESSES: cluster-node-1:6379,cluster-node-2:6379,cluster-node-3:6379
+      VALKEY_MODE: cluster
+    depends_on:
+      cluster-init:
+        condition: service_completed_successfully
+
+networks:
+  demo:
+    driver: bridge

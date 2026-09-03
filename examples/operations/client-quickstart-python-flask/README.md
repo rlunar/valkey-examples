@@ -20,10 +20,16 @@ The same Flask code stores and retrieves one value against either:
 environment. The capsule assumes those values are correct and fails naturally
 when they are missing or unusable.
 
+## Documentation
+
+- [Design and pseudocode](docs/DESIGN.md)
+- [60-second demo runbook](docs/DEMO.md)
+- [Build-from-scratch video tutorial](docs/TUTORIAL.md)
+
 ## 60-second walkthrough
 
-Prerequisites are Docker with Compose, Python 3.14, uv, Make, and ShellCheck.
-Install the locked environment once:
+Prerequisites are Docker with Compose, Python 3.14, uv, Make, ShellCheck,
+HTTPie, jq, and bat. Install the locked environment once:
 
 ```shell
 cp .env.example .env

@@ -66,6 +66,10 @@ The planned source is deliberately small:
 ```text
 examples/operations/client-quickstart-python-flask/
 ├── compose.yaml
+├── docs/
+│   ├── DEMO.md
+│   ├── DESIGN.md
+│   └── TUTORIAL.md
 ├── example.yaml
 ├── Makefile
 ├── README.md
