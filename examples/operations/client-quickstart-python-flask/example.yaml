@@ -1,0 +1,38 @@
+schema_version: 1
+id: client-quickstart-python-flask
+title: Valkey GLIDE Flask client quickstart
+kind: demo
+capability: operations
+languages:
+  - python
+owners:
+  primary: rlunar
+  backup: valkey-io
+status: candidate
+valkey:
+  versions:
+    - "9.1.1"
+  image: valkey/valkey:9.1.1-trixie@sha256:64e361b630ecf18dff7ca4df6a88e6eafc193687eb48cff2c7e0a293ab67d29a
+clients:
+  - name: valkey-glide-sync
+    version: "2.5.1"
+runtime:
+  setup: make setup
+  start: make start
+  verify: make verify
+  reset: make reset
+  stop: make stop
+  timeout_seconds: 900
+resources:
+  cpu_cores: 4
+  memory_mb: 2048
+  disk_mb: 3072
+  download_mb: 1536
+credentials:
+  required_for_default: false
+network:
+  external_downloads_after_setup: false
+upstream:
+  project_url: null
+  minimum_version: null
+security_exceptions: []

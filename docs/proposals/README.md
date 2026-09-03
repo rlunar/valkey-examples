@@ -4,6 +4,7 @@ Design proposals are reviewed before an example capsule is implemented.
 
 | Proposal | Kind | Capability | Status |
 | --- | --- | --- | --- |
+| [Valkey GLIDE Flask client quickstart](client-quickstart-python-flask.md) | Demo | Operations | Approved |
 | [Sliding-window rate limiter with Python and Flask](sliding-window-rate-limiter-python-flask.md) | Demo | Rate limiter | Draft |
 | [Topology-aware Flask application with Python and GLIDE](topology-aware-python-flask.md) | Demo | Operations | Approved |
 
