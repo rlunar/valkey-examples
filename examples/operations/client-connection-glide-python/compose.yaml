@@ -1,4 +1,4 @@
-name: valkey-example-client-connection-python
+name: valkey-example-client-connection-glide-python
 
 x-valkey: &valkey
   image: valkey/valkey:9.1.1-alpine@sha256:15568b9cb7eb67f4aed4de018c23f13d344e0e6437b31fe8fb8823dc81ebb3a9
@@ -19,7 +19,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: valkey-example-client-connection-python:local
+    image: valkey-example-client-connection-glide-python:local
     restart: "no"
     init: true
     env_file:

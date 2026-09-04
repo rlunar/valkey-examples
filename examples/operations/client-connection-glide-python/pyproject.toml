@@ -3,7 +3,7 @@ requires = ["setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "valkey-client-connection"
+name = "valkey-client-connection-glide-python"
 version = "0.1.0"
 description = "A minimal standalone and cluster Valkey GLIDE connection demo"
 readme = "README.md"

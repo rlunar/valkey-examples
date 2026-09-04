@@ -8,7 +8,7 @@ repositories.
 
 ## Examples
 
-- [Minimal Valkey GLIDE Python connection](client-connection-python/)
+- [Minimal Valkey GLIDE Python connection](client-connection-glide-python/)
   — connects one `app.py` directly to standalone Valkey or a three-primary
   cluster, then runs `SET` and `GET`.
 - [Valkey GLIDE Flask client quickstart](client-quickstart-python-flask/)

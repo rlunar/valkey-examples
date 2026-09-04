@@ -9,8 +9,8 @@ the repeatable Docker environment used behind the recording.
 Create the project:
 
 ```shell
-uv init --package client-connection-python
-cd client-connection-python
+uv init --package client-connection-glide-python
+cd client-connection-glide-python
 ```
 
 Add the two runtime dependencies:
@@ -35,7 +35,7 @@ Its final runtime dependency list in `pyproject.toml` is:
 
 ```toml
 [project]
-name = "valkey-client-connection"
+name = "valkey-client-connection-glide-python"
 version = "0.1.0"
 description = "A minimal standalone and cluster Valkey GLIDE connection demo"
 readme = "README.md"
@@ -223,7 +223,7 @@ installation. The final process runs as the unprivileged `app` user.
 Create `compose.yaml`:
 
 ```yaml
-name: valkey-example-client-connection-python
+name: valkey-example-client-connection-glide-python
 
 x-valkey: &valkey
   image: valkey/valkey:9.1.1-alpine@sha256:15568b9cb7eb67f4aed4de018c23f13d344e0e6437b31fe8fb8823dc81ebb3a9
@@ -244,7 +244,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: valkey-example-client-connection-python:local
+    image: valkey-example-client-connection-glide-python:local
     restart: "no"
     init: true
     env_file:
@@ -530,7 +530,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 compose_all down --remove-orphans --volumes
-printf 'Stopped resources owned by client-connection-python.\n'
+printf 'Stopped resources owned by client-connection-glide-python.\n'
 ```
 
 Create `scripts/test-real.sh`:

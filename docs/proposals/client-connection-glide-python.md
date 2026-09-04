@@ -5,7 +5,7 @@ kind: demo
 capability: operations
 language: python
 client: valkey-glide-sync
-proposed_path: examples/operations/client-connection-python
+proposed_path: examples/operations/client-connection-glide-python
 admission_status: blocked-pending-repository-maintainers-and-language-reviewers
 ---
 
@@ -13,7 +13,7 @@ admission_status: blocked-pending-repository-maintainers-and-language-reviewers
 
 ## Decision request
 
-Implement `examples/operations/client-connection-python` as a 30-second
+Implement `examples/operations/client-connection-glide-python` as a 30-second
 demonstration of connecting Python to either standalone Valkey or Valkey
 Cluster with GLIDE, storing one string, and retrieving it.
 
@@ -54,13 +54,13 @@ class, a repository layer, custom exceptions, or health endpoints.
 The implementation path is exactly:
 
 ```text
-examples/operations/client-connection-python
+examples/operations/client-connection-glide-python
 ```
 
 The planned tree is:
 
 ```text
-examples/operations/client-connection-python/
+examples/operations/client-connection-glide-python/
 ├── compose.yaml
 ├── docs/
 │   ├── DEMO.md
@@ -114,7 +114,7 @@ Real integration checks run the same `app.py` command against both topologies.
 ## Acceptance criteria
 
 - The proposal and capsule use
-  `examples/operations/client-connection-python`.
+  `examples/operations/client-connection-glide-python`.
 - Application behavior fits in one `app.py`.
 - `.env` contains every value needed to create the GLIDE client.
 - The visible path is client creation, `SET`, `GET`, print, and close.

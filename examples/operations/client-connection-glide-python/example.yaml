@@ -1,5 +1,5 @@
 schema_version: 1
-id: client-connection-python
+id: client-connection-glide-python
 title: Minimal Valkey GLIDE Python connection
 kind: demo
 capability: operations

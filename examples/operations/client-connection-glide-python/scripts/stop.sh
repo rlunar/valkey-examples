@@ -6,4 +6,4 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 compose_all down --remove-orphans --volumes
-printf 'Stopped resources owned by client-connection-python.\n'
+printf 'Stopped resources owned by client-connection-glide-python.\n'
