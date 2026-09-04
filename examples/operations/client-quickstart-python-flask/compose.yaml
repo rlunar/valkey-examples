@@ -1,7 +1,7 @@
 name: valkey-example-client-quickstart-python-flask
 
 x-valkey: &valkey
-  image: valkey/valkey:9.1.1-trixie@sha256:64e361b630ecf18dff7ca4df6a88e6eafc193687eb48cff2c7e0a293ab67d29a
+  image: valkey/valkey:9.1.1-alpine@sha256:15568b9cb7eb67f4aed4de018c23f13d344e0e6437b31fe8fb8823dc81ebb3a9
   restart: "no"
   networks:
     - demo
@@ -263,7 +263,7 @@ services:
       - /data
 
   cluster-init:
-    image: valkey/valkey:9.1.1-trixie@sha256:64e361b630ecf18dff7ca4df6a88e6eafc193687eb48cff2c7e0a293ab67d29a
+    image: valkey/valkey:9.1.1-alpine@sha256:15568b9cb7eb67f4aed4de018c23f13d344e0e6437b31fe8fb8823dc81ebb3a9
     profiles: ["cluster"]
     restart: "no"
     command:
