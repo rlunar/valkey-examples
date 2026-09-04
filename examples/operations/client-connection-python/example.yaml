@@ -1,0 +1,38 @@
+schema_version: 1
+id: client-connection-python
+title: Minimal Valkey GLIDE Python connection
+kind: demo
+capability: operations
+languages:
+  - python
+owners:
+  primary: rlunar
+  backup: valkey-io
+status: candidate
+valkey:
+  versions:
+    - "9.1.1"
+  image: valkey/valkey:9.1.1-alpine@sha256:15568b9cb7eb67f4aed4de018c23f13d344e0e6437b31fe8fb8823dc81ebb3a9
+clients:
+  - name: valkey-glide-sync
+    version: "2.5.1"
+runtime:
+  setup: make setup
+  start: make start
+  verify: make verify
+  reset: make reset
+  stop: make stop
+  timeout_seconds: 600
+resources:
+  cpu_cores: 2
+  memory_mb: 1024
+  disk_mb: 2048
+  download_mb: 1024
+credentials:
+  required_for_default: false
+network:
+  external_downloads_after_setup: false
+upstream:
+  project_url: null
+  minimum_version: null
+security_exceptions: []
