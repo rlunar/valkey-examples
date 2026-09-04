@@ -1,0 +1,152 @@
+name: valkey-example-client-connection-glide-python
+
+x-valkey: &valkey
+  image: valkey/valkey:9.1.1-alpine@sha256:15568b9cb7eb67f4aed4de018c23f13d344e0e6437b31fe8fb8823dc81ebb3a9
+  restart: "no"
+  networks:
+    - demo
+  security_opt:
+    - no-new-privileges:true
+  healthcheck:
+    test: ["CMD", "valkey-cli", "-h", "127.0.0.1", "-p", "6379", "ping"]
+    interval: 1s
+    timeout: 1s
+    retries: 30
+    start_period: 2s
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: valkey-example-client-connection-glide-python:local
+    restart: "no"
+    init: true
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./.env:/app/.env:ro
+    networks:
+      - demo
+    security_opt:
+      - no-new-privileges:true
+
+  standalone:
+    <<: *valkey
+    profiles: ["standalone"]
+    command:
+      - valkey-server
+      - --appendonly
+      - "no"
+      - --save
+      - ""
+      - --protected-mode
+      - "no"
+    tmpfs:
+      - /data
+
+  cluster-node-1:
+    <<: *valkey
+    profiles: ["cluster"]
+    command:
+      - valkey-server
+      - --appendonly
+      - "no"
+      - --save
+      - ""
+      - --protected-mode
+      - "no"
+      - --cluster-enabled
+      - "yes"
+      - --cluster-config-file
+      - /data/nodes.conf
+      - --cluster-node-timeout
+      - "5000"
+      - --cluster-announce-hostname
+      - cluster-node-1
+      - --cluster-announce-port
+      - "6379"
+      - --cluster-announce-bus-port
+      - "16379"
+      - --cluster-preferred-endpoint-type
+      - hostname
+    tmpfs:
+      - /data
+
+  cluster-node-2:
+    <<: *valkey
+    profiles: ["cluster"]
+    command:
+      - valkey-server
+      - --appendonly
+      - "no"
+      - --save
+      - ""
+      - --protected-mode
+      - "no"
+      - --cluster-enabled
+      - "yes"
+      - --cluster-config-file
+      - /data/nodes.conf
+      - --cluster-node-timeout
+      - "5000"
+      - --cluster-announce-hostname
+      - cluster-node-2
+      - --cluster-announce-port
+      - "6379"
+      - --cluster-announce-bus-port
+      - "16379"
+      - --cluster-preferred-endpoint-type
+      - hostname
+    tmpfs:
+      - /data
+
+  cluster-node-3:
+    <<: *valkey
+    profiles: ["cluster"]
+    command:
+      - valkey-server
+      - --appendonly
+      - "no"
+      - --save
+      - ""
+      - --protected-mode
+      - "no"
+      - --cluster-enabled
+      - "yes"
+      - --cluster-config-file
+      - /data/nodes.conf
+      - --cluster-node-timeout
+      - "5000"
+      - --cluster-announce-hostname
+      - cluster-node-3
+      - --cluster-announce-port
+      - "6379"
+      - --cluster-announce-bus-port
+      - "16379"
+      - --cluster-preferred-endpoint-type
+      - hostname
+    tmpfs:
+      - /data
+
+  cluster-init:
+    image: valkey/valkey:9.1.1-alpine@sha256:15568b9cb7eb67f4aed4de018c23f13d344e0e6437b31fe8fb8823dc81ebb3a9
+    profiles: ["cluster"]
+    restart: "no"
+    command:
+      - valkey-cli
+      - --cluster
+      - create
+      - cluster-node-1:6379
+      - cluster-node-2:6379
+      - cluster-node-3:6379
+      - --cluster-yes
+    networks:
+      - demo
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  demo:
+    driver: bridge

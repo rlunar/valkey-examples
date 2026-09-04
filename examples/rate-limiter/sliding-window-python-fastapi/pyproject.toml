@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "valkey-sliding-window-rate-limiter-fastapi"
+version = "0.1.0"
+description = "A Valkey sliding-window rate limiter example using FastAPI and GLIDE"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+  "fastapi==0.141.1",
+  "httpx==0.28.1",
+  "pydantic==2.13.4",
+  "pydantic-settings==2.15.0",
+  "uvicorn==0.52.4",
+  "valkey-glide==2.5.1",
+]
+
+[project.scripts]
+rate-limiter-demo = "rate_limiter_demo.app:main"
+
+[dependency-groups]
+dev = [
+  "mypy==2.3.1",
+  "pytest==9.1.1",
+  "pytest-asyncio==1.4.0",
+  "pytest-cov==7.1.0",
+  "ruff==0.16.4",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+rate_limiter_demo = ["py.typed", "valkey/scripts/*.lua"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+  "integration: requires a real Valkey server",
+  "journey: exercises the HTTP adapter against a real Valkey server",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+packages = ["rate_limiter_demo"]
+
+[tool.coverage.run]
+branch = true
+source = ["rate_limiter_demo"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true

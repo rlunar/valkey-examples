@@ -7,7 +7,7 @@ name = "valkey-sliding-window-rate-limiter"
 version = "0.1.0"
 description = "A Valkey sliding-window rate limiter example using Flask and GLIDE"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
   "Flask==3.1.3",
   "pydantic==2.13.4",
@@ -45,13 +45,13 @@ markers = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py313"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 strict = true
 packages = ["rate_limiter_demo"]
 
