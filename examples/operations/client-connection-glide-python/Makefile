@@ -1,11 +1,13 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
-export UV_CACHE_DIR
+CAPSULE_ID := client-connection-glide-python
+INFRA_ROOT := $(abspath $(CURDIR)/../../..)/infra
+UNIT_TEST_ARGS := --cov --cov-report=term-missing
 
-.PHONY: help setup start demo reset stop format lint typecheck test-unit \
-	test-real verify-static verify
+include $(INFRA_ROOT)/make/python.mk
+
+.PHONY: help start demo reset stop test-real
 
 help:
 	@printf '%s\n' \
@@ -21,10 +23,11 @@ help:
 		"test-real    Run app.py against standalone and cluster" \
 		"verify       Run every static and behavioral check"
 
-setup:
+setup-before:
 	test -f .env || cp .env.example .env
-	uv sync --frozen
-	docker compose build app
+
+setup-after:
+	@bash -c 'source scripts/common.sh; compose build app'
 
 start:
 	./scripts/start.sh
@@ -38,26 +41,5 @@ reset:
 stop:
 	./scripts/stop.sh
 
-format:
-	uv run --frozen ruff format src tests
-	uv run --frozen ruff check --fix src tests
-
-lint:
-	uv run --frozen ruff format --check src tests
-	uv run --frozen ruff check src tests
-	shellcheck -x scripts/*.sh
-
-typecheck:
-	uv run --frozen mypy
-
-test-unit:
-	uv run --frozen pytest tests/unit --cov --cov-report=term-missing
-
 test-real:
 	./scripts/test-real.sh
-
-verify-static: lint typecheck
-	docker compose --profile standalone --profile cluster config --quiet
-	../../../tools/ci/check-structure.sh
-
-verify: setup verify-static test-unit test-real

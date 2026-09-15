@@ -8,7 +8,7 @@ MAX_IDENTITY_LENGTH = 128
 
 
 class InvalidIdentity(ValueError):
-    """Raised when a caller identity is missing or unbounded."""
+    """Raised when a caller identity is missing or too long."""
 
 
 def normalize_identity(identity: str) -> str:

@@ -9,6 +9,14 @@ work the same in standalone and cluster mode.
 Application behavior remains in one file. Docker and shell files exist only to
 make both real topologies repeatable.
 
+## Plain-language map
+
+The application reads three values: which connection type to use, where the
+Valkey nodes are, and which message to store. It then creates one client,
+writes the message, reads it, prints it, and closes the client.
+
+Only client creation differs between standalone and cluster mode.
+
 ## Architecture
 
 The application runs in a glibc-based Python container because the GLIDE wheel
@@ -46,7 +54,8 @@ one-shot app executes inside the same network.
 | --- | --- |
 | `app.py` | Load dotenv, create GLIDE, run `SET` and `GET`, close |
 | `.env` | Select mode, addresses, and message |
-| `compose.yaml` | Provide one standalone node or three cluster nodes |
+| `compose.yaml` | Define the application container |
+| `../../../infra/compose.yaml` | Provide one standalone node or three cluster nodes |
 | `scripts/` | Start, run, reset, verify, and stop |
 
 There is no client class. `create_client()` is a function because it performs

@@ -10,6 +10,19 @@ Valkey GLIDE, and Valkey 9.1.1 on the pinned Trixie image. `multi-exec` is
 the default; `lua` is selected through an immutable `pydantic-settings`
 configuration model.
 
+## Plain-language algorithm
+
+Think of the sorted set as a time-ordered list of accepted requests:
+
+1. remove entries older than the time window;
+2. count the entries that remain;
+3. deny the request if the count reached the limit;
+4. otherwise add the new request time; and
+5. report how long the caller must wait before space opens.
+
+The transaction and Lua versions perform these same five steps. They differ
+only in how they prevent two requests from changing the list at the same time.
+
 ## Components
 
 ```mermaid
@@ -81,23 +94,26 @@ An event exactly on the lower boundary is expired. The represented interval is
 ```python
 async def check(identity, policy, request_id):
     key = f"{prefix}:{policy.policy_id}:{sha256(identity)}"
-    for attempt in range(max_retries):
-        await client.watch([key])
-        now_ms = await server_time_ms(client)
-        cutoff_ms = now_ms - policy.window_ms
-        count = await client.zcount(key, cutoff_ms+1, "+inf")
-        allowed = count < policy.limit
-        tx = Batch(atomic=True)
-        tx.zremrangebyscore(key, "-inf", cutoff_ms)
-        if allowed:
-            tx.zadd(key, {f"{now_ms}:{request_id}": now_ms})
-            tx.pexpire(key, policy.window_ms)
-        tx.zcard(key)
-        tx.zrange_withscores(key, 0, 0)
-        result = await client.exec(tx)
-        if result is None:
-            continue   # WATCH conflict; retry
-        return build_decision(allowed, policy, result[-2], now_ms, oldest(result[-1]))
+    async with connection_lock:
+        for attempt in range(max_retries):
+            await client.watch([key])
+            now_ms = await server_time_ms(client)
+            cutoff_ms = now_ms - policy.window_ms
+            count = await client.zcount(key, cutoff_ms+1, "+inf")
+            allowed = count < policy.limit
+            tx = Batch(atomic=True)
+            tx.zremrangebyscore(key, "-inf", cutoff_ms)
+            if allowed:
+                tx.zadd(key, {f"{now_ms}:{request_id}": now_ms})
+                tx.pexpire(key, policy.window_ms)
+            tx.zcard(key)
+            tx.zrange_withscores(key, 0, 0)
+            result = await client.exec(tx)
+            if result is None:
+                continue   # WATCH conflict; retry
+            return build_decision(
+                allowed, policy, result[-2], now_ms, oldest(result[-1])
+            )
     raise RateLimitDependencyError("too many retries")
 ```
 
@@ -118,11 +134,16 @@ end
 
 ## WATCH/MULTI/EXEC concurrency sequence
 
+The lifespan-owned GLIDE client is shared by concurrent requests. Since
+`WATCH` is connection-scoped, one process-local asynchronous lock spans the
+complete optimistic transaction. Separate application processes still compete
+through Valkey's normal `WATCH` conflict detection and bounded retry loop.
+
 ```mermaid
 sequenceDiagram
     autonumber
-    participant c1 as Coroutine A
-    participant c2 as Coroutine B
+    participant c1 as Process A
+    participant c2 as Process B
     participant v as Valkey
 
     c1->>v: WATCH key

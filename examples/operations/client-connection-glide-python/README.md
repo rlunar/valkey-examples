@@ -1,16 +1,43 @@
 # Minimal Valkey GLIDE Python Connection
 
-This is the 30-second Python and Valkey GLIDE demo. One
-[`app.py`](src/valkey_connection/app.py) loads `.env`, creates either
+In this 30-second Python and Valkey GLIDE demo, you run one
+[`app.py`](src/valkey_connection/app.py). It loads `.env`, creates either
 `GlideClient` or `GlideClusterClient`, runs `SET` and `GET`, prints the value,
 and closes the connection.
 
-There is no Flask, settings model, client wrapper, repository layer, telemetry,
-or custom error handling.
+**Level:** [`L100` — Beginner](../../../docs/authoring.md#choose-the-level)
+
+## Start here
+
+You only need to recognize Python variables, functions, and `if` statements.
+The program does four things:
+
+1. reads the Valkey address from `.env`;
+2. opens a GLIDE connection;
+3. stores and reads one message; and
+4. closes the connection.
+
+Key words:
+
+- **client:** the Python object that sends commands to Valkey;
+- **standalone:** one Valkey server;
+- **cluster:** several Valkey servers that split the keys between them; and
+- **bytes:** the form in which GLIDE returns stored text before Python decodes
+  it into a string.
+
+Think of GLIDE as a Star Trek communicator: your Python code sends a command
+through it and receives Valkey's reply.
+
+Read the code in this order:
+
+1. [`app.py`](src/valkey_connection/app.py) for the complete program;
+2. [`.env.example`](.env.example) for the three input values; and
+3. [`scripts/start.sh`](scripts/start.sh) only when you want to see how the
+   containers start.
 
 ## What you will see
 
-The same Python file prints:
+When you run the same Python file against either setup, it prints:
 
 ```text
 hello from GLIDE
@@ -26,6 +53,15 @@ against either:
 - [Design and pseudocode](docs/DESIGN.md)
 - [30-second video runbook](docs/DEMO.md)
 - [Build-from-scratch tutorial](docs/TUTORIAL.md)
+- [Short reel script](docs/SCRIPT_REEL.md)
+- [Longer tutorial-video script](docs/SCRIPT_VIDEO.md)
+
+## Shared infrastructure
+
+[`example.yaml`](example.yaml) points to the root
+[infrastructure capsule](../../../infra/README.md) and selects
+`valkey-standalone` or `valkey-cluster-3`. The local `compose.yaml` contains
+only the application image.
 
 ## Quick start
 
@@ -85,8 +121,8 @@ load_dotenv()
 client = create_client()
 try:
     client.set(DEMO_KEY, os.environ["VALKEY_MESSAGE"])
-    stored = client.get(DEMO_KEY)
-    print(stored.decode())
+    stored_bytes = client.get(DEMO_KEY)
+    print(stored_bytes.decode())
 finally:
     client.close()
 ```
@@ -96,14 +132,16 @@ function so unit tests can use the GLIDE boundary without starting Valkey.
 
 ## Architecture
 
-The app container and the selected Valkey topology share one private Compose
-network. No service port is published to the host.
+The app container and the selected shared-infrastructure topology run in one
+capsule-isolated Compose project and private network. No service port is
+published to the host.
 
 ```mermaid
 flowchart LR
     env[".env<br/>mode, addresses, message"] --> app["app.py"]
-    app -->|"GlideClient"| standalone["Standalone<br/>1 node"]
-    app -->|"GlideClusterClient"| cluster["Cluster<br/>3 primary nodes"]
+    app --> infra["Shared infra capsule"]
+    infra -->|"GlideClient"| standalone["Standalone<br/>1 node"]
+    infra -->|"GlideClusterClient"| cluster["Cluster<br/>3 primary nodes"]
     app -->|"SET then GET"| output["hello from GLIDE"]
 ```
 

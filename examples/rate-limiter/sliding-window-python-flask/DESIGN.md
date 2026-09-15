@@ -9,6 +9,19 @@ The implementation uses Python 3.14+, uv, Flask, synchronous Valkey GLIDE, and
 Valkey 9.1.1 on the pinned Trixie image. `multi-exec` is the default; `lua` is
 selected through an immutable `pydantic-settings` configuration model.
 
+## Plain-language algorithm
+
+Think of the sorted set as a time-ordered list of accepted requests:
+
+1. remove entries older than the time window;
+2. count the entries that remain;
+3. deny the request if the count reached the limit;
+4. otherwise add the new request time; and
+5. report how long the caller must wait before space opens.
+
+The transaction and Lua versions perform these same five steps. They differ
+only in how they prevent two requests from changing the list at the same time.
+
 ## Components
 
 ```mermaid

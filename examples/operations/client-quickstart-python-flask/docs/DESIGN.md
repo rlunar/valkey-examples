@@ -10,6 +10,12 @@ framework or application service layer.
 The design intentionally trusts `.env`. Missing or malformed values fail at
 startup through normal Python, GLIDE, or operating-system exceptions.
 
+## Plain-language map
+
+`ValkeyClient` opens the connection. `app.py` owns the web route and sends
+`SET`, `GET`, or `DEL`. The class does not hide those commands, so a learner
+can see the complete data path in one file.
+
 ## Architecture
 
 `ValkeyClient` only creates and closes the selected GLIDE client. Flask uses
@@ -47,7 +53,8 @@ that the wrapper reads from the environment.
 | --- | --- |
 | `valkey_client.py` | Load `.env`, parse addresses, create the GLIDE client |
 | `app.py` | Create Flask, execute commands, decode the stored value |
-| `compose.yaml` | Provide standalone and cluster topologies |
+| `compose.yaml` | Define the Flask application services |
+| `../../../infra/compose.yaml` | Provide standalone and cluster topologies |
 | `scripts/` | Start, demonstrate, verify, reset, and stop |
 
 There is no store layer, settings model, repository abstraction, health

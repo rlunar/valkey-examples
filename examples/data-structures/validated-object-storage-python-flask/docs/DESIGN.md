@@ -12,6 +12,12 @@ This capsule demonstrates a narrow object-storage pattern:
 It extends the GLIDE quickstart without becoming an object mapper. There are
 no secondary indexes, query language, migrations, or repository classes.
 
+## Plain-language map
+
+Pydantic checks the product before Valkey sees it. A valid product becomes JSON
+bytes and is stored with `SET`. A read uses `GET`, then Pydantic checks the
+stored JSON and rebuilds either a physical or digital product.
+
 ## Architecture
 
 Pydantic owns the object contract. `ValkeyClient` owns both the GLIDE
@@ -178,8 +184,9 @@ validation.
 the Flask app, and starts Waitress. The application factory accepts an
 optional client so unit tests can inject a fake.
 
-Compose offers a standalone pair and a six-node cluster. Only Flask is
-published to the host.
+The shared infrastructure capsule offers a standalone pair and a six-node
+cluster. The local Compose fragment contains only Flask, which is the only
+service published to the host.
 
 ## Design decisions
 

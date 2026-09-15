@@ -14,6 +14,19 @@ The design favors a few behavior-rich modules:
 - `AppSettings` owns validated configuration; and
 - `telemetry.py` owns process-wide logging and tracing setup.
 
+## Plain-language map
+
+The Flask routes know only how to work with counters. `ValkeyStore` knows how
+to connect to each Valkey setup:
+
+```text
+standalone -> connect to one node
+Sentinel   -> ask Sentinel for the primary, then connect to that node
+cluster    -> connect with the cluster-aware client
+```
+
+The route code stays the same in all three cases.
+
 ## Architecture
 
 The Flask layer depends on one store interface. The store hides the selected

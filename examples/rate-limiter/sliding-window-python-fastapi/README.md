@@ -1,17 +1,54 @@
 # Sliding-Window Rate Limiter with Python and FastAPI
 
-This capsule demonstrates a true sliding-window log rate limiter backed by a
-Valkey sorted set. It includes two interchangeable atomic implementations:
+In this capsule, you limit how many requests one caller can make during the
+most recent ten seconds. Valkey stores the time of each accepted request in a
+sorted set.
 
-- `multi-exec` uses `WATCH`, a bounded retry loop, and `MULTI`/`EXEC`;
-- `lua` uses one cached server-side Lua script.
+It offers two ways to make the check safe when requests arrive together:
 
-Both use Valkey server time, store one sorted set per policy and hashed
-identity, return the same HTTP contract, and enforce the same cardinality
-bound. The default is `multi-exec`.
+- `multi-exec` uses a Valkey transaction and retries if another writer changes
+  the key;
+- `lua` runs the complete check as one script inside Valkey.
 
-FastAPI lifespan management owns one asynchronous GLIDE client for the lifetime
-of the application. Request handlers do not create per-request connections.
+The default is `multi-exec`. FastAPI creates one asynchronous GLIDE client when
+the application starts and closes it when the application stops.
+
+**Level:** [`L300` — Advanced](../../../docs/authoring.md#choose-the-level)
+
+## Start here
+
+You should know Python `async` functions, HTTP status codes, and basic Valkey
+commands.
+
+For every request, the limiter:
+
+1. removes request times that are outside the window;
+2. counts the request times still inside the window;
+3. accepts the request when the count is below the limit;
+4. stores the new request time when accepted; and
+5. returns HTTP 429 plus a wait time when denied.
+
+Key words:
+
+- **asynchronous:** able to pause while waiting for network work;
+- **rate limit:** a rule that allows only a set number of requests;
+- **sliding window:** a time range measured backward from right now;
+- **sorted set:** Valkey data ordered by numeric scores;
+- **atomic:** completed without another request changing the middle of the
+  calculation; and
+- **lifespan:** FastAPI startup and shutdown code.
+
+A failed `WATCH` gives the transaction a *Groundhog Day* moment: it starts over
+because another request changed the key before `EXEC`.
+
+Read the code in this order:
+
+1. [`decision.py`](src/rate_limiter_demo/decision.py) for the result;
+2. [`app.py`](src/rate_limiter_demo/app.py) for startup and the HTTP route;
+3. [`multi_exec.py`](src/rate_limiter_demo/valkey/multi_exec.py) for the
+   transaction; and
+4. [`sliding_window.lua`](src/rate_limiter_demo/valkey/scripts/sliding_window.lua)
+   for the script version.
 
 ## Quick demo
 
@@ -29,12 +66,14 @@ brew bundle
 make demo
 ```
 
-The demo starts Valkey and the FastAPI application, sends five HTTP 200
-requests for identity A, shows its sixth request returning HTTP 429, proves
-identity B still receives HTTP 200, waits for the returned `Retry-After`, and
-confirms identity A is allowed again. If another valid 429 extends the window,
-the demo follows the new `Retry-After` through a bounded polling loop. An exit
-trap stops only this capsule's resources.
+[`example.yaml`](example.yaml) points to the root
+[infrastructure capsule](../../../infra/README.md), selecting
+`valkey-standalone-host`. The example has no local Compose file.
+
+The demo sends five accepted requests for caller A. Request six returns HTTP
+429. Caller B still receives HTTP 200 because each caller has a separate
+limit. The demo waits for the `Retry-After` time, tries caller A again, and
+then cleans up its own processes.
 
 Run the same journey with the Lua implementation:
 
@@ -46,6 +85,11 @@ Every visible demo request uses HTTPie. Gum highlights accepted requests as
 green `✅ 200 Accepted` outcomes and denied requests as red `❌ 429 Denied`
 outcomes. The emoji labels remain visible in plain and CI output when Gum
 styling is disabled.
+
+## Recording scripts
+
+- [Short reel script](docs/SCRIPT_REEL.md)
+- [Longer tutorial-video script](docs/SCRIPT_VIDEO.md)
 
 ## Architecture
 
@@ -70,15 +114,18 @@ flowchart LR
     end
 
     subgraph docker["Docker"]
+        infra["Shared infra capsule"]
         valkey[("Valkey 9.1.1 on Trixie")]
+        infra --> valkey
     end
 
     caller -->|"GET /api/limited and X-Client-ID"| fastapi
     glide -->|"Sorted-set commands"| valkey
 ```
 
-Only Valkey runs in Docker. The FastAPI application and the asynchronous GLIDE
-client run on the host. The Valkey image is
+Only Valkey runs in Docker, supplied by the shared infrastructure capsule. The
+FastAPI application and the asynchronous GLIDE client run on the host. The
+Valkey image is
 `valkey/valkey:9-trixie`, pinned to an immutable multi-platform digest.
 
 ## Application lifespan

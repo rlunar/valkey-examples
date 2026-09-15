@@ -13,7 +13,7 @@ from rate_limiter_demo.valkey.common import integer_sequence, rate_limit_key
 
 
 class LuaRateLimiter:
-    """Use one cached server-side script for an atomic decision."""
+    """Run the full rate-limit check as one Lua script inside Valkey."""
 
     def __init__(self, client: GlideClient, key_prefix: str) -> None:
         self._client = client

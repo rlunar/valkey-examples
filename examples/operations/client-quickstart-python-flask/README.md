@@ -1,17 +1,48 @@
 # Valkey GLIDE Flask Client Quickstart
 
-This is the 60-second version of a Flask and Valkey GLIDE demo. It keeps the
-connection choice in one small class and leaves the actual `SET` and `GET`
-calls visible in [`app.py`](src/valkey_quickstart/app.py).
+In this 60-second Flask and Valkey GLIDE demo, you keep the connection choice
+in one small class. You can see the actual `SET` and `GET` calls in
+[`app.py`](src/valkey_quickstart/app.py).
 
 Use the longer
 [topology-aware Flask capsule](../topology-aware-python-flask/) when a demo
 needs validated settings, Sentinel, structured telemetry, readiness endpoints,
 or production-oriented error handling.
 
+**Level:** [`L100` — Beginner](../../../docs/authoring.md#choose-the-level)
+
+## Start here
+
+You should know basic Python and that a web route connects a URL to a Python
+function. The application follows this path:
+
+1. Flask receives `POST /value`;
+2. GLIDE runs `SET` to store the value;
+3. Flask receives `GET /value`;
+4. GLIDE runs `GET`; and
+5. Flask returns the stored value as JSON.
+
+Key words:
+
+- **route:** a URL and HTTP method handled by one Python function;
+- **client:** the object that sends commands to Valkey;
+- **primary:** the node that accepts writes;
+- **replica:** a node that keeps a copy of the primary's data; and
+- **shard:** one part of the keyspace in a cluster.
+
+A Flask route works like a door in *Monsters, Inc.*: each URL opens into one
+specific Python function.
+
+Read the code in this order:
+
+1. [`app.py`](src/valkey_quickstart/app.py) for the HTTP routes;
+2. [`valkey_client.py`](src/valkey_quickstart/valkey_client.py) for connection
+   creation; and
+3. [`scripts/demo.py`](scripts/demo.py) for the two visible HTTP requests.
+
 ## What you will see
 
-The same Flask code stores and retrieves one value against either:
+You run the same Flask code to store and retrieve one value against either:
 
 - standalone Valkey: one primary and one replica; or
 - Valkey Cluster: three primary shards and one replica per shard.
@@ -24,7 +55,16 @@ when they are missing or unusable.
 
 - [Design and pseudocode](docs/DESIGN.md)
 - [60-second demo runbook](docs/DEMO.md)
-- [Build-from-scratch video tutorial](docs/TUTORIAL.md)
+- [Build-from-scratch tutorial](docs/TUTORIAL.md)
+- [Short reel script](docs/SCRIPT_REEL.md)
+- [Longer tutorial-video script](docs/SCRIPT_VIDEO.md)
+
+## Shared infrastructure
+
+[`example.yaml`](example.yaml) points to the root
+[infrastructure capsule](../../../infra/README.md) and selects
+`valkey-standalone-replicated` or `valkey-cluster-6`. The local `compose.yaml`
+contains only the Flask application services.
 
 ## 60-second walkthrough
 
@@ -44,7 +84,7 @@ make demo
 make stop
 ```
 
-Expected output includes the value being stored and then read:
+You should see Valkey store the value and return it:
 
 ```text
 POST /value -> {"value": "hello from standalone"}
@@ -72,7 +112,7 @@ The routes then use the GLIDE client directly:
 
 ```python
 valkey.client.set(DEMO_KEY, value)
-stored = valkey.client.get(DEMO_KEY)
+stored_bytes = valkey.client.get(DEMO_KEY)
 ```
 
 There is no store layer, settings model, health endpoint, or custom exception
@@ -87,8 +127,9 @@ Flask module so the complete teaching path fits on one screen.
 flowchart LR
     caller["make demo"] -->|"POST/GET /value"| flask["Flask app.py"]
     flask -->|"GLIDE SET / GET"| client["ValkeyClient.client"]
-    client -->|"standalone profile"| pair["1 primary + 1 replica"]
-    client -->|"cluster profile"| cluster["3 primaries + 3 replicas"]
+    client --> infra["Shared infra capsule"]
+    infra -->|"standalone profile"| pair["1 primary + 1 replica"]
+    infra -->|"cluster profile"| cluster["3 primaries + 3 replicas"]
 ```
 
 The standalone client receives both node addresses and writes to the primary.
@@ -106,9 +147,10 @@ The application reads exactly these variables:
 | `FLASK_HOST` | `0.0.0.0` | Waitress bind host |
 | `FLASK_PORT` | `8000` | Waitress and loopback publication port |
 
-Compose supplies topology-specific Valkey addresses to the application
-container. `.env.example` also contains every variable needed to run the
-standalone configuration directly from a compatible network.
+The shared infrastructure capsule supplies topology-specific Valkey addresses
+to the application-only Compose services. `.env.example` also contains every
+variable needed to run the standalone configuration directly from a compatible
+network.
 
 ## Lifecycle and verification
 

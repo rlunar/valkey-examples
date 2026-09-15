@@ -36,8 +36,8 @@ The current convention for a single-language implementation slug is:
 ```
 
 Directory names are not parsed to derive metadata. `example.yaml` is
-authoritative for kind, capability, languages, owners, compatibility, and
-lifecycle.
+authoritative for kind, capability, level, languages, owners, compatibility,
+and lifecycle.
 
 A capability is valid only when it appears in all three locations:
 
@@ -71,9 +71,20 @@ exists or its path is ambiguous, resolve the proposal before creating code.
 
 ## Repository invariants
 
-- Keep every capsule independently runnable, copyable, and removable.
+- Keep every application capsule runnable and removable through its own
+  `Makefile`; copy the shared `infra/` capsule with it when moving it outside
+  this repository.
 - Keep runtime dependencies and lockfiles inside the capsule.
-- Share schemas, catalog tooling, CI orchestration, and documentation only.
+- Share schemas, catalog tooling, CI orchestration, and documentation templates
+  through repository-root modules. Share local database orchestration through
+  the root `infra/` capsule only.
+- Require every `example.yaml` to declare `infrastructure.capsule:
+  ../../../infra` and the exact profiles it uses.
+- Require every `example.yaml` to declare one L100–L500 learning level using
+  the definitions in `docs/authoring.md`.
+- Keep application runtime code local. Shared infrastructure may provide
+  Compose services, Make includes, readiness helpers, and lifecycle shell
+  functions, but no Valkey application behavior.
 - Use the capsule interface: `make setup`, `make start`, `make verify`,
   `make reset`, and `make stop`.
 - Follow the applicable guide under `docs/languages/`.
@@ -83,6 +94,8 @@ exists or its path is ambiguous, resolve the proposal before creating code.
 - Use real Valkey in integration and journey tests.
 - Apply the diagram contract in `docs/authoring.md` to every proposal and
   capsule; prefer Mermaid embedded beside its explanatory prose.
+- Keep `docs/SCRIPT_REEL.md` at 60 seconds or less and make
+  `docs/SCRIPT_VIDEO.md` reach its primary runnable build by `05:00`.
 
 ## Completion criteria
 
@@ -90,11 +103,12 @@ Before reporting completion:
 
 1. confirm every changed proposal path is identical across front matter,
    narrative, indexes, and the planned tree;
-2. confirm every capability is synchronized across the schema and category
+2. confirm every proposal, manifest, and capsule README uses the same level;
+3. confirm every capability is synchronized across the schema and category
    documentation;
-3. run `bash tools/ci/check-structure.sh`;
-4. run Markdown lint for documentation changes;
-5. validate changed JSON and YAML files;
-6. confirm required diagrams match the documented architecture and behavior;
-7. run `git diff --check`; and
-8. report which checks actually ran.
+4. run `bash tools/ci/check-structure.sh`;
+5. run Markdown lint for documentation changes;
+6. validate changed JSON and YAML files;
+7. confirm required diagrams match the documented architecture and behavior;
+8. run `git diff --check`; and
+9. report which checks actually ran.

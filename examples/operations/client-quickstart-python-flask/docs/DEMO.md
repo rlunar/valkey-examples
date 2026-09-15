@@ -22,7 +22,7 @@ make setup
 ```
 
 The default journey requires Docker with Compose, Python 3.14, uv, Make, and
-ShellCheck. HTTPie, jq, and bat are used for the presenter-facing commands. It
+ShellCheck. You use HTTPie, jq, and bat for the presenter-facing commands. It
 publishes Flask at `http://127.0.0.1:8000`.
 
 ## Standalone mini-demo
@@ -30,24 +30,22 @@ publishes Flask at `http://127.0.0.1:8000`.
 ### 0-15 seconds: show construction
 
 Display [`src/valkey_quickstart/app.py`](../src/valkey_quickstart/app.py) with
-syntax highlighting:
+the Flask route and Valkey commands highlighted:
 
 ```shell
-bat --paging=never --style=numbers src/valkey_quickstart/app.py
+gum style --bold "Flask route and visible Valkey commands"
+bat --paging=never --style=numbers \
+  --highlight-line 17:37 \
+  src/valkey_quickstart/app.py
 ```
 
-Highlight:
+Display the standalone-versus-cluster client choice:
 
-```python
-valkey = ValkeyClient()
-app = create_app(valkey)
-```
-
-Then show the two important commands:
-
-```python
-valkey.client.set(DEMO_KEY, stored)
-stored = valkey.client.get(DEMO_KEY)
+```shell
+gum style --bold "GLIDE client selection"
+bat --paging=never --style=numbers \
+  --highlight-line 24:37 \
+  src/valkey_quickstart/valkey_client.py
 ```
 
 Suggested narration:
@@ -176,15 +174,13 @@ FLASK_PORT=8010 make stop
 If startup fails, inspect the selected application:
 
 ```shell
-docker compose --profile standalone logs --tail=100 app-standalone
-docker compose --profile cluster logs --tail=100 app-cluster
+source scripts/common.sh
+TOPOLOGY=standalone compose logs --tail=100 app-standalone
+TOPOLOGY=cluster compose logs --tail=100 app-cluster
 ```
 
 Remove only this capsule's Compose resources:
 
 ```shell
-docker compose \
-  --profile standalone \
-  --profile cluster \
-  down --remove-orphans --volumes
+make stop
 ```

@@ -1,12 +1,36 @@
 # Build the Topology-Aware Flask Demo
 
+## Read this first
+
+This is an advanced capsule, but the main idea is short:
+
+```text
+choose a Valkey setup -> create the matching client -> use the same counter routes
+```
+
+For a first pass, read sections 3 through 9, then run section 16. Sections 10
+through 15 contain complete reference files, containers, scripts, and tests.
+Read `telemetry.py` last because logging and trace export are optional to the
+counter lesson.
+
+Key words:
+
+- **topology:** the way Valkey servers are arranged;
+- **Sentinel:** processes that watch a primary and choose a replacement;
+- **discovery:** asking Sentinel for the current primary;
+- **store:** the class that owns Valkey commands; and
+- **telemetry:** logs and traces that describe requests.
+
+Think of Sentinel as Mission Control: several processes watch the primary,
+agree when it has failed, and coordinate a replacement.
+
 ## Recording plan
 
-This tutorial builds the capsule in recordable stages. Each stage ends with a
-small checkpoint so a video can pause, explain the result, and continue.
+You will build the capsule in recordable stages. Each stage ends with a small
+checkpoint where you can pause, explain the result, and continue.
 
-The final implementation is in the parent capsule. Keep it open as the
-reference while recording.
+Keep the final implementation in the parent capsule open as your reference
+while you record.
 
 ## CLI presentation
 
@@ -43,7 +67,6 @@ Create the application and test layout:
 ```shell
 mkdir -p \
   docs \
-  infra/sentinel \
   scripts \
   src/valkey_flask_demo \
   tests/integration \
@@ -724,7 +747,7 @@ type DataClient = GlideClient | GlideClusterClient
 
 
 class CounterStore(Protocol):
-    """Interface consumed by the Flask adapter."""
+    """The small set of storage methods used by the Flask routes."""
 
     def get(self, name: str) -> int: ...
 
@@ -740,11 +763,11 @@ class CounterStore(Protocol):
 
 
 class ValkeyUnavailable(RuntimeError):
-    """The selected Valkey topology could not complete an operation."""
+    """Valkey could not complete the requested counter operation."""
 
 
 class ValkeyStore:
-    """Own one GLIDE client and hide topology-specific behavior."""
+    """Own one GLIDE client and handle the three connection choices."""
 
     def __init__(self, settings: AppSettings) -> None:
         self._settings = settings
@@ -813,6 +836,7 @@ class ValkeyStore:
         self._client.close()
 
     def _run(self, operation: Callable[[DataClient], T]) -> T:
+        # GLIDE handles normal errors for standalone and cluster connections.
         if self._settings.topology is not Topology.SENTINEL:
             try:
                 return operation(self._client)
@@ -821,6 +845,8 @@ class ValkeyStore:
                     "Valkey operation failed"
                 ) from error
 
+        # Sentinel may point to a new primary after a failure. The lock keeps
+        # two threads from replacing the shared client at the same time.
         with self._sentinel_lock:
             try:
                 return operation(self._client)
@@ -841,6 +867,7 @@ class ValkeyStore:
                     ) from retry_error
 
     def _connect(self) -> DataClient:
+        # Cluster mode needs the cluster-aware GLIDE client.
         if self._settings.topology is Topology.CLUSTER:
             return GlideClusterClient.create(
                 GlideClusterClientConfiguration(
@@ -859,6 +886,8 @@ class ValkeyStore:
                 )
             )
 
+        # Sentinel is a discovery service. Ask it for the primary, then create
+        # a normal standalone client that sends data commands to that primary.
         if self._settings.topology is Topology.SENTINEL:
             primary = self._discover_sentinel_primary()
             self._discovered_primary = primary
@@ -867,6 +896,7 @@ class ValkeyStore:
                 static=True,
             )
 
+        # Standalone mode connects directly to the configured data nodes.
         return self._create_standalone_client(
             list(self._settings.addresses()),
             static=False,
@@ -898,6 +928,8 @@ class ValkeyStore:
         )
 
     def _replace_sentinel_client(self) -> None:
+        # Build the replacement before closing the old client. This keeps the
+        # store usable if discovery fails.
         old_client = self._client
         primary = self._discover_sentinel_primary()
         replacement = self._create_standalone_client(
@@ -913,6 +945,7 @@ class ValkeyStore:
         for sentinel in self._settings.addresses():
             client: GlideClient | None = None
             try:
+                # Try each Sentinel address until one returns a valid primary.
                 client = GlideClient.create(
                     GlideClientConfiguration(
                         addresses=self._node_addresses([sentinel]),
@@ -952,6 +985,8 @@ class ValkeyStore:
                     f"{self._format_address(sentinel)}: {error}"
                 )
             finally:
+                # Use discovery clients only while asking Sentinel. Create the
+                # data client later in _connect() or _replace_sentinel_client().
                 if client is not None:
                     client.close()
 
@@ -1559,10 +1594,11 @@ bat --paging=never --style=numbers .gitignore
 bat --paging=never --style=numbers .dockerignore
 ```
 
-## 12. Create Docker and Compose
+## 12. Create the application image and select shared infrastructure
 
-This section builds the complete local environment. It contains the Flask
-container plus independent standalone, Sentinel, and cluster profiles.
+The local Compose fragment contains the Flask variants. `example.yaml` points
+to [`infra/compose.yaml`](../../../../infra/compose.yaml), which owns the
+standalone, Sentinel, and cluster profiles plus the Sentinel configuration.
 
 ### 12.1 Create the application image
 
@@ -1619,15 +1655,15 @@ Inspect the result:
 bat --paging=never --style=numbers Dockerfile
 ```
 
-### 12.2 Create the Sentinel configuration
+### 12.2 Inspect the shared Sentinel configuration
 
-Create the directory:
+The Sentinel configuration now lives in the shared infrastructure capsule:
 
 ```shell
-mkdir -p infra/sentinel
+bat --paging=never --style=numbers ../../../infra/sentinel/sentinel.conf
 ```
 
-Create `infra/sentinel/sentinel.conf`:
+Its contents are:
 
 ```text
 port 26379
@@ -1657,7 +1693,9 @@ writable copy.
 
 ### 12.3 Create the Compose stack
 
-Create `compose.yaml`:
+The shared infrastructure file owns the Valkey and Sentinel definitions. The
+expanded listing below documents that implementation; the local
+`compose.yaml` keeps only the Flask services:
 
 ```yaml
 name: valkey-example-topology-aware-python-flask
@@ -2029,21 +2067,22 @@ and it is bound to `127.0.0.1`.
 Validate each profile before starting containers:
 
 ```shell
-docker compose --profile standalone config --quiet
-docker compose --profile sentinel config --quiet
-docker compose --profile cluster config --quiet
+bash scripts/common.sh config
 yq '.services | keys' compose.yaml
-bat --paging=never --style=numbers compose.yaml
+yq '.services | keys' ../../../infra/compose.yaml
+bash scripts/common.sh config
+bat --paging=never --style=numbers compose.yaml ../../../infra/compose.yaml
 ```
 
 If Compose reports a missing `.env`, create it from `.env.example`. The
 `env_file` is optional, but having the file makes the tutorial easier to
 follow and edit during a recording.
 
-## 13. Add every lifecycle script
+## 13. Add thin lifecycle adapters
 
-The scripts provide a small, repeatable command surface around Compose. Keep
-application behavior in Python modules and orchestration behavior here.
+The scripts provide a small command surface around the shared infrastructure
+module. Keep application behavior in Python modules and common orchestration
+in `../../../infra/scripts/capsule.sh`.
 
 Create the scripts directory:
 
@@ -2053,7 +2092,8 @@ mkdir -p scripts
 
 ### 13.1 Add shared shell helpers
 
-Create `scripts/common.sh`:
+The expanded listing below explains the behavior that was extracted. Use the
+short checked-in [`scripts/common.sh`](../scripts/common.sh) adapter instead:
 
 ```bash
 #!/usr/bin/env bash
@@ -2144,9 +2184,7 @@ if ! compose up -d --build --wait "$(app_service)"; then
   exit 1
 fi
 
-uv run --frozen python scripts/wait_for_http.py \
-  "${BASE_URL}/health/ready" \
-  --timeout 60
+wait_for_http "${BASE_URL}/health/ready" 60
 
 printf 'Flask and Valkey are ready: topology=%s url=%s\n' "$TOPOLOGY" "$BASE_URL"
 ```
@@ -2157,7 +2195,8 @@ failure, the script prints the latest application logs before exiting.
 
 ### 13.3 Wait for the HTTP application
 
-Create `scripts/wait_for_http.py`:
+The shared readiness implementation lives in
+`../../../infra/scripts/wait_for_http.py`:
 
 ```python
 #!/usr/bin/env python3
@@ -2360,6 +2399,7 @@ for topology in standalone sentinel cluster; do
 
   TOPOLOGY="$topology" \
     FLASK_PORT="$test_port" \
+    BASE_URL="$base_url" \
     ./scripts/start.sh
 
   TOPOLOGY="$topology" \
@@ -2404,7 +2444,7 @@ Review and statically check all scripts:
 ```shell
 bat --paging=never --style=numbers scripts/common.sh
 bat --paging=never --style=numbers scripts/start.sh
-bat --paging=never --style=numbers scripts/wait_for_http.py
+bat --paging=never --style=numbers ../../../infra/scripts/wait_for_http.py
 bat --paging=never --style=numbers scripts/demo.py
 bat --paging=never --style=numbers scripts/reset.py
 bat --paging=never --style=numbers scripts/stop.sh
@@ -2413,9 +2453,11 @@ shellcheck -x scripts/*.sh
 uv run ruff check scripts
 ```
 
-## 14. Add the complete Make interface
+## 14. Add the Make adapter
 
-Create `Makefile`:
+The checked-in `Makefile` sets capsule-specific variables and includes
+`../../../infra/make/python.mk`. The expanded listing below is retained as an
+interface reference; do not duplicate these common recipes:
 
 <!-- markdownlint-disable MD010 -->
 
@@ -2477,7 +2519,7 @@ test-real:
 	./scripts/test-real.sh
 
 verify-static: lint typecheck
-	docker compose config --quiet
+	bash scripts/common.sh config
 	../../../tools/ci/check-structure.sh
 
 verify: setup verify-static test-unit test-real
@@ -2561,8 +2603,9 @@ TOPOLOGY=standalone make start
 Inspect the running services:
 
 ```shell
-docker compose --profile standalone ps
-docker compose --profile standalone logs --tail=50 app-standalone
+source scripts/common.sh
+TOPOLOGY=standalone compose ps
+TOPOLOGY=standalone compose logs --tail=50 app-standalone
 ```
 
 Use HTTPie for the visible interaction:

@@ -1,8 +1,30 @@
 # Build the Minimal Valkey GLIDE Python Connection
 
-This tutorial creates the complete capsule. For a 30-second reel, record only
-the `.env`, `app.py`, and `make demo` sections. The remaining sections explain
-the repeatable Docker environment used behind the recording.
+You will create the complete capsule. For a 30-second reel, record only the
+`.env`, `app.py`, and `make demo` sections. Use the remaining sections when
+you want to understand the repeatable Docker environment behind the recording.
+
+## Read this first
+
+For a first pass, read sections 2 through 4, then run sections 10 and 11. The
+Docker image, shell scripts, tests, and Makefile make the example repeatable,
+but they are not required to understand `SET` and `GET`.
+
+The main idea is:
+
+```text
+read address -> connect -> SET -> GET -> print -> close
+```
+
+Key words:
+
+- **client:** the Python object that sends Valkey commands;
+- **address:** a host name and port, such as `standalone:6379`;
+- **standalone:** one Valkey server; and
+- **cluster:** several Valkey servers that share the keys.
+
+Think of GLIDE as a Star Trek communicator: your Python code sends a command
+through it and receives Valkey's reply.
 
 ## 1. Initialize Python
 
@@ -104,11 +126,13 @@ DEMO_KEY = "valkey-examples:client-connection:message"
 def create_client() -> ValkeyClient:
     """Create the selected GLIDE client from the trusted environment."""
 
+    # Convert each "host:port" string into the address type GLIDE expects.
     addresses = []
     for address in os.environ["VALKEY_ADDRESSES"].split(","):
         host, port = address.split(":")
         addresses.append(NodeAddress(host=host, port=int(port)))
 
+    # Cluster mode needs a cluster-aware client. SET and GET stay the same.
     if os.environ["VALKEY_MODE"] == "cluster":
         return GlideClusterClient.create(
             GlideClusterClientConfiguration(addresses=addresses)
@@ -123,11 +147,13 @@ def run(client: ValkeyClient) -> str:
     """Store the configured message and print the value read from Valkey."""
 
     client.set(DEMO_KEY, os.environ["VALKEY_MESSAGE"])
-    stored = client.get(DEMO_KEY)
-    assert stored is not None
-    value = stored.decode()
-    print(value)
-    return value
+    stored_bytes = client.get(DEMO_KEY)
+    assert stored_bytes is not None
+
+    # Valkey stores bytes. Decode them before printing a Python string.
+    message = stored_bytes.decode()
+    print(message)
+    return message
 
 
 def main() -> None:
@@ -218,9 +244,14 @@ CMD ["valkey-connect"]
 The dependency files are copied before source so Docker can cache dependency
 installation. The final process runs as the unprivileged `app` user.
 
-## 6. Create both Valkey topologies
+## 6. Select both shared Valkey topologies
 
-Create `compose.yaml`:
+The manifest points to [`infra/compose.yaml`](../../../../infra/compose.yaml)
+for `valkey-standalone` and `valkey-cluster-3`. The local
+[`compose.yaml`](../compose.yaml) contains only the application image.
+
+The expanded listing below documents the topology now implemented once in the
+shared infrastructure capsule. Do not copy it into the local file:
 
 ```yaml
 name: valkey-example-client-connection-glide-python
@@ -384,13 +415,16 @@ Inspect and validate the stack:
 
 ```shell
 yq '.services | keys' compose.yaml
-docker compose --profile standalone config --quiet
-docker compose --profile cluster config --quiet
+yq '.services | keys' ../../../infra/compose.yaml
+bash scripts/common.sh config
 ```
 
-## 7. Add the lifecycle scripts
+## 7. Add thin lifecycle adapters
 
-Create `scripts/common.sh`:
+The checked-in [`scripts/common.sh`](../scripts/common.sh) maps the selected
+mode to a shared infrastructure profile and sources
+`../../../infra/scripts/capsule.sh`. The expanded listing below explains the
+behavior that was extracted; do not duplicate it:
 
 ```bash
 #!/usr/bin/env bash
@@ -714,9 +748,11 @@ def test_app_prints_the_value_read_from_valkey(
 The real test script starts each topology, executes `app.py`, runs the
 integration test in the same app image, resets the key, and cleans up.
 
-## 9. Add the Make interface
+## 9. Add the Make adapter
 
-Create the complete `Makefile`:
+The checked-in `Makefile` sets capsule-specific variables and includes
+`../../../infra/make/python.mk`. The expanded listing below is retained as an
+interface reference; do not duplicate these common recipes:
 
 <!-- markdownlint-disable MD010 -->
 
@@ -747,7 +783,7 @@ help:
 setup:
 	test -f .env || cp .env.example .env
 	uv sync --frozen
-	docker compose build app
+	@bash -c 'source scripts/common.sh; compose build app'
 
 start:
 	./scripts/start.sh
@@ -780,7 +816,7 @@ test-real:
 	./scripts/test-real.sh
 
 verify-static: lint typecheck
-	docker compose --profile standalone --profile cluster config --quiet
+	bash scripts/common.sh config
 	../../../tools/ci/check-structure.sh
 
 verify: setup verify-static test-unit test-real

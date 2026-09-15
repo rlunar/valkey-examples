@@ -1,9 +1,32 @@
 # Build Validated Pydantic Object Storage
 
+## Read this first
+
+You should know basic Python classes, dictionaries, JSON, and Flask routes.
+For a first pass, read sections 3 through 10, then run section 17. Sections 11
+through 16 contain complete files, containers, scripts, and tests.
+
+The main path is:
+
+```text
+receive JSON -> validate fields -> save JSON -> read JSON -> rebuild product
+```
+
+Key words:
+
+- **validation:** checking types and allowed values;
+- **serialization:** turning a Python object into JSON;
+- **variant:** one allowed product shape;
+- **discriminator:** the `kind` field that chooses a variant; and
+- **UUID:** the product's unique identifier.
+
+Pydantic plays the bouncer at the Mos Eisley cantina: data with the wrong
+fields does not get through the door to Valkey.
+
 ## Recording plan
 
-This tutorial starts with the minimal GLIDE connection pattern and adds typed
-objects one layer at a time. The recommended video sequence is:
+You start with the minimal GLIDE connection pattern and add typed objects one
+layer at a time. Follow this sequence when you record the video:
 
 1. initialize and install;
 2. define the two Pydantic models;
@@ -175,6 +198,7 @@ from typing import Annotated
 
 from pydantic import Field, StringConstraints
 
+# Annotated keeps the normal Python type and adds Pydantic validation rules.
 ProductName = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=3, max_length=80),
@@ -257,6 +281,7 @@ Create the discriminated union and its one reusable adapter:
 ```python
 from pydantic import TypeAdapter
 
+# The "kind" field tells Pydantic which product class to build.
 type Product = Annotated[
     PhysicalProduct | DigitalProduct,
     Field(discriminator="kind"),
@@ -345,6 +370,7 @@ class ValkeyClient:
     key_prefix = "valkey-examples:validated-object:product"
 
     def __init__(self) -> None:
+        # Convert comma-separated "host:port" text into GLIDE addresses.
         addresses = []
         for address in os.environ["VALKEY_ADDRESSES"].split(","):
             host, port = address.strip().rsplit(":", maxsplit=1)
@@ -377,10 +403,10 @@ def save(self, product: Product) -> None:
 
 
 def get(self, product_id: UUID) -> Product | None:
-    stored = self.client.get(self._key(product_id))
-    if stored is None:
+    stored_json = self.client.get(self._key(product_id))
+    if stored_json is None:
         return None
-    return PRODUCT_ADAPTER.validate_json(stored)
+    return PRODUCT_ADAPTER.validate_json(stored_json)
 
 
 def delete(self, product_id: UUID) -> bool:
@@ -416,10 +442,11 @@ Add the create route:
 ```python
 @app.post("/products")
 def create_product() -> tuple[Any, int]:
-    product = PRODUCT_ADAPTER.validate_python(request.get_json())
+    product_data = request.get_json()
+    product = PRODUCT_ADAPTER.validate_python(product_data)
     valkey.save(product)
-    body = PRODUCT_ADAPTER.dump_python(product, mode="json")
-    return jsonify(body), 201
+    response_body = PRODUCT_ADAPTER.dump_python(product, mode="json")
+    return jsonify(response_body), 201
 ```
 
 Add read and delete routes:
@@ -430,8 +457,8 @@ def get_product(product_id: UUID) -> tuple[Any, int]:
     product = valkey.get(product_id)
     if product is None:
         return jsonify({"error": "product not found"}), 404
-    body = PRODUCT_ADAPTER.dump_python(product, mode="json")
-    return jsonify(body), 200
+    response_body = PRODUCT_ADAPTER.dump_python(product, mode="json")
+    return jsonify(response_body), 200
 
 
 @app.delete("/products/<uuid:product_id>")
@@ -507,6 +534,7 @@ from pydantic import (
     TypeAdapter,
 )
 
+# Annotated keeps the normal Python type and adds Pydantic validation rules.
 ProductName = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=3, max_length=80),
@@ -555,6 +583,7 @@ class DigitalProduct(ProductBase):
     file_size_bytes: int = Field(gt=0)
 
 
+# The "kind" field tells Pydantic which product class to build.
 type Product = Annotated[
     PhysicalProduct | DigitalProduct,
     Field(discriminator="kind"),
@@ -597,6 +626,7 @@ class ValkeyClient:
     key_prefix = "valkey-examples:validated-object:product"
 
     def __init__(self) -> None:
+        # Convert comma-separated "host:port" text into GLIDE addresses.
         addresses = []
         for address in os.environ["VALKEY_ADDRESSES"].split(","):
             host, port = address.strip().rsplit(":", maxsplit=1)
@@ -622,10 +652,10 @@ class ValkeyClient:
     def get(self, product_id: UUID) -> Product | None:
         """Read and reconstruct the correct product variant."""
 
-        stored = self.client.get(self._key(product_id))
-        if stored is None:
+        stored_json = self.client.get(self._key(product_id))
+        if stored_json is None:
             return None
-        return PRODUCT_ADAPTER.validate_json(stored)
+        return PRODUCT_ADAPTER.validate_json(stored_json)
 
     def delete(self, product_id: UUID) -> bool:
         """Delete one UUID-derived product key."""
@@ -682,18 +712,19 @@ def create_app(valkey: ValkeyClient | None = None) -> Flask:
 
     @app.post("/products")
     def create_product() -> tuple[Any, int]:
-        product = PRODUCT_ADAPTER.validate_python(request.get_json())
+        product_data = request.get_json()
+        product = PRODUCT_ADAPTER.validate_python(product_data)
         valkey.save(product)
-        body = PRODUCT_ADAPTER.dump_python(product, mode="json")
-        return jsonify(body), 201
+        response_body = PRODUCT_ADAPTER.dump_python(product, mode="json")
+        return jsonify(response_body), 201
 
     @app.get("/products/<uuid:product_id>")
     def get_product(product_id: UUID) -> tuple[Any, int]:
         product = valkey.get(product_id)
         if product is None:
             return jsonify({"error": "product not found"}), 404
-        body = PRODUCT_ADAPTER.dump_python(product, mode="json")
-        return jsonify(body), 200
+        response_body = PRODUCT_ADAPTER.dump_python(product, mode="json")
+        return jsonify(response_body), 200
 
     @app.delete("/products/<uuid:product_id>")
     def delete_product(product_id: UUID) -> tuple[Any, int]:
@@ -832,9 +863,15 @@ bat --paging=never --style=numbers Dockerfile .dockerignore
 docker build --tag validated-object-storage:local .
 ```
 
-## 14. Create the complete Compose topology
+## 14. Understand the shared Compose topology
 
-Create `compose.yaml`:
+Database topology is not recreated in this capsule. Its manifest points to
+[`infra/compose.yaml`](../../../../infra/compose.yaml) and selects
+`valkey-standalone-replicated` and `valkey-cluster-6`. The local
+[`compose.yaml`](../compose.yaml) contains only the Flask services.
+
+The expanded topology below documents the behavior now hidden behind the
+shared infrastructure interface. Do not copy it into the example capsule:
 
 ```yaml
 name: valkey-example-validated-object-storage-python-flask
@@ -1047,17 +1084,22 @@ Read the file in five layers:
 Validate and inspect it:
 
 ```shell
-docker compose --profile standalone config --quiet
-docker compose --profile cluster config --quiet
+bash scripts/common.sh config
 yq '.services | keys' compose.yaml
-bat --paging=never --style=numbers compose.yaml
+yq '.services | keys' ../../../infra/compose.yaml
+bat --paging=never --style=numbers compose.yaml ../../../infra/compose.yaml
 ```
 
-## 15. Add every lifecycle script
+## 15. Add thin lifecycle adapters
+
+The checked-in scripts source `../../../infra/scripts/capsule.sh`. The shared
+module owns Compose arguments, profile selection, readiness, cleanup, and the
+real-topology test loop.
 
 ### 15.1 Shared topology behavior
 
-Create `scripts/common.sh`:
+The expanded listing below explains the behavior that was extracted. Use the
+short checked-in [`scripts/common.sh`](../scripts/common.sh) adapter instead:
 
 ```bash
 #!/usr/bin/env bash
@@ -1114,15 +1156,14 @@ if ! compose up -d --build --wait "$(app_service)"; then
   exit 1
 fi
 
-uv run --frozen python scripts/wait_for_http.py \
-  "${BASE_URL}/" \
-  --timeout 60
+wait_for_http "${BASE_URL}/" 60
 
 printf 'Flask and Valkey are ready: topology=%s url=%s\n' \
   "$TOPOLOGY" "$BASE_URL"
 ```
 
-Create `scripts/wait_for_http.py`:
+The shared readiness implementation lives in
+`../../../infra/scripts/wait_for_http.py`:
 
 ```python
 """Wait until an HTTP endpoint returns a successful response."""
@@ -1303,7 +1344,8 @@ for topology in standalone cluster; do
   printf '\n== Verify %s topology ==\n' "$topology"
   cleanup
 
-  TOPOLOGY="$topology" FLASK_PORT="$test_port" ./scripts/start.sh
+  TOPOLOGY="$topology" FLASK_PORT="$test_port" BASE_URL="$base_url" \
+    ./scripts/start.sh
 
   TOPOLOGY="$topology" FLASK_PORT="$test_port" \
     docker compose --profile "$topology" run \
@@ -1325,9 +1367,11 @@ Make the shell scripts executable:
 chmod +x scripts/common.sh scripts/start.sh scripts/stop.sh scripts/test-real.sh
 ```
 
-## 16. Add the Make interface and tests
+## 16. Add the Make adapter and tests
 
-Create `Makefile`:
+The checked-in `Makefile` sets capsule-specific variables and includes
+`../../../infra/make/python.mk`. The expanded listing below is retained as an
+interface reference; do not duplicate these common recipes:
 
 <!-- markdownlint-disable MD010 -->
 
@@ -1389,7 +1433,7 @@ test-real:
 	./scripts/test-real.sh
 
 verify-static: lint typecheck
-	docker compose config --quiet
+	bash scripts/common.sh config
 	../../../tools/ci/check-structure.sh
 
 verify: setup verify-static test-unit test-real

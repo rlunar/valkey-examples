@@ -25,6 +25,19 @@ body:
       description: Use a Valkey learning goal, not a framework or vendor name.
     validations:
       required: true
+  - type: dropdown
+    id: level
+    attributes:
+      label: Learning level
+      description: Select the prerequisite knowledge and conceptual depth, not the implementation size.
+      options:
+        - L100 — Beginner
+        - L200 — Intermediate
+        - L300 — Advanced
+        - L400 — Expert
+        - L500 — Maintainer
+    validations:
+      required: true
   - type: textarea
     id: behavior
     attributes:

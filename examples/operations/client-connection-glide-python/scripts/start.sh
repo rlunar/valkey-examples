@@ -12,10 +12,10 @@ else
 
   if ! compose exec -T cluster-node-1 \
     valkey-cli cluster info | grep -q '^cluster_state:ok'; then
-    compose run --rm --no-deps cluster-init
+    compose run --rm --no-deps cluster-init-3
   fi
 
-  for _ in {1..40}; do
+  for _attempt in {1..40}; do
     if compose exec -T cluster-node-1 \
       valkey-cli cluster info | grep -q '^cluster_state:ok'; then
       break

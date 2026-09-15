@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wait until an HTTP endpoint returns a successful status."""
+"""Wait until an HTTP endpoint returns a successful response."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import urllib.request
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("url")
-    parser.add_argument("--timeout", type=float, default=30)
+    parser.add_argument("--timeout", type=float, default=60)
     args = parser.parse_args()
 
     deadline = time.monotonic() + args.timeout

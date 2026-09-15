@@ -6,7 +6,7 @@ These instructions apply to every example capsule. Follow the root
 ## Admission sequence
 
 1. Locate the approved proposal.
-2. Read its `status`, `capability`, and `proposed_path`.
+2. Read its `status`, `capability`, `level`, and `proposed_path`.
 3. Confirm the user authorized implementation.
 4. Create the capsule at the exact `proposed_path`.
 5. Validate `example.yaml` against `schemas/example.schema.json`.
@@ -19,16 +19,23 @@ documentation-only draft, or names a different path.
 The capsule must:
 
 - own its runtime declarations, manifests, lockfiles, source, tests, fixtures,
-  container definitions, and cleanup;
+  application container definitions, and application cleanup;
+- declare its exact shared infrastructure profiles in `example.yaml`;
 - implement `make setup`, `make start`, `make verify`, `make reset`, and
   `make stop`;
 - run from a clean clone without paid credentials;
 - use real Valkey for integration and journey tests;
 - expose the expected behavior and cleanup in its README;
+- use the shared `docs/templates/` files for missing demo runbooks, tutorials,
+  reel scripts, tutorial-video scripts, or video plans through
+  `make -C infra docs-init CAPSULE=...`, then keep the generated files
+  capsule-owned and synchronized with `make demo`;
 - embed the diagrams required by [`docs/authoring.md`](../docs/authoring.md)
   beside the prose they explain;
 - contain no empty directories; and
-- import no runtime code from another capsule or repository-level helper.
+- import no application runtime code from another example capsule;
+- use only the root `infra/` capsule for shared Compose services, Make
+  defaults, readiness checks, and lifecycle shell behavior.
 
 Follow the language guide referenced by the proposal. If a required language
 guide is missing, add or approve that guide before implementation.
@@ -39,6 +46,7 @@ The manifest must match the approved proposal:
 
 - `id` matches the capsule identity;
 - `capability` matches the proposal and schema enum;
+- `level` matches the proposal and L100–L500 authoring definitions;
 - `languages` describes the implementation, independent of directory parsing;
 - image references contain an immutable digest;
 - owners are real primary and backup handles; and

@@ -1,10 +1,15 @@
-schema_version: 1
+schema_version: 2
 id: sliding-window-python-fastapi
 title: Sliding-window rate limiter with Python and FastAPI
 kind: demo
 capability: rate-limiter
+level: L300
 languages:
   - python
+infrastructure:
+  capsule: ../../../infra
+  profiles:
+    - valkey-standalone-host
 owners:
   primary: rlunar
   backup: valkey-io

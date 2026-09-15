@@ -31,16 +31,19 @@ def create_app(valkey: ValkeyClient | None = None) -> Flask:
 
     @app.post("/products")
     def create_product() -> tuple[Any, int]:
-        product = PRODUCT_ADAPTER.validate_python(request.get_json())
+        product_data = request.get_json()
+        product = PRODUCT_ADAPTER.validate_python(product_data)
         valkey.save(product)
-        return jsonify(PRODUCT_ADAPTER.dump_python(product, mode="json")), 201
+        response_body = PRODUCT_ADAPTER.dump_python(product, mode="json")
+        return jsonify(response_body), 201
 
     @app.get("/products/<uuid:product_id>")
     def get_product(product_id: UUID) -> tuple[Any, int]:
         product = valkey.get(product_id)
         if product is None:
             return jsonify({"error": "product not found"}), 404
-        return jsonify(PRODUCT_ADAPTER.dump_python(product, mode="json")), 200
+        response_body = PRODUCT_ADAPTER.dump_python(product, mode="json")
+        return jsonify(response_body), 200
 
     @app.delete("/products/<uuid:product_id>")
     def delete_product(product_id: UUID) -> tuple[Any, int]:

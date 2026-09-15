@@ -3,6 +3,7 @@ proposal: Valkey GLIDE Flask client quickstart
 status: Approved
 kind: demo
 capability: operations
+level: L100
 language: python
 client: valkey-glide-sync
 proposed_path: examples/operations/client-quickstart-python-flask
@@ -45,7 +46,7 @@ The capsule will:
 - let missing or malformed configuration fail naturally;
 - put topology selection in one small `ValkeyClient` class;
 - keep `SET`, `GET`, and `DEL` visible in `app.py`;
-- provide standalone and cluster Compose profiles;
+- select the shared standalone-replica and six-node cluster profiles;
 - use no Sentinel, Pydantic, OpenTelemetry, custom error mapping, or health
   endpoints; and
 - delete only the known demo key during reset.
@@ -65,7 +66,7 @@ The planned source is deliberately small:
 
 ```text
 examples/operations/client-quickstart-python-flask/
-├── compose.yaml
+├── compose.yaml              # application services only
 ├── docs/
 │   ├── DEMO.md
 │   ├── DESIGN.md
@@ -104,7 +105,9 @@ and its purpose is to show the GLIDE calls.
 
 The capsule implements `make setup`, `make start`, `make verify`,
 `make reset`, and `make stop`. `TOPOLOGY=standalone` is the default;
-`TOPOLOGY=cluster` selects the cluster profile.
+`TOPOLOGY=cluster` selects the cluster profile. `example.yaml` points to the
+root `infra/` capsule, which owns both database topologies; the local Compose
+file owns only the Flask services.
 
 Unit tests cover route behavior and topology selection. Real integration and
 HTTP journey tests execute against both supported topologies.

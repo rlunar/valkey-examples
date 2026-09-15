@@ -3,6 +3,7 @@ proposal: Validated object storage with Pydantic, Flask, and Valkey GLIDE
 status: Approved
 kind: demo
 capability: data-structures
+level: L200
 language: python
 client: valkey-glide-sync
 proposed_path: examples/data-structures/validated-object-storage-python-flask
@@ -56,7 +57,7 @@ The capsule will:
   reconstruction;
 - store each product under a bounded UUID-derived key;
 - return validation failures as HTTP 422 responses;
-- provide standalone and cluster Compose profiles;
+- select the shared standalone-replica and six-node cluster profiles;
 - keep configuration environment-driven and intentionally small; and
 - delete only the two known demo products during reset.
 
@@ -81,7 +82,7 @@ The planned source remains compact:
 ```text
 examples/data-structures/validated-object-storage-python-flask/
 ├── CONTEXT.md
-├── compose.yaml
+├── compose.yaml              # application services only
 ├── docs/
 │   ├── DEMO.md
 │   ├── DESIGN.md
@@ -140,7 +141,9 @@ sequenceDiagram
 
 The capsule implements `make setup`, `make start`, `make verify`,
 `make reset`, and `make stop`. `TOPOLOGY=standalone` is the default;
-`TOPOLOGY=cluster` selects the cluster profile.
+`TOPOLOGY=cluster` selects the cluster profile. `example.yaml` points to the
+root `infra/` capsule, which owns both database topologies; the local Compose
+file owns only the Flask services.
 
 Unit tests cover both variants, invalid fields, serialization, typed
 reconstruction, and Flask responses. Real integration and HTTP journey tests

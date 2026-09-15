@@ -29,7 +29,7 @@ type DataClient = GlideClient | GlideClusterClient
 
 
 class CounterStore(Protocol):
-    """Interface consumed by the Flask adapter."""
+    """The small set of storage methods used by the Flask routes."""
 
     def get(self, name: str) -> int: ...
 
@@ -45,11 +45,11 @@ class CounterStore(Protocol):
 
 
 class ValkeyUnavailable(RuntimeError):
-    """The selected Valkey topology could not complete an operation."""
+    """Valkey could not complete the requested counter operation."""
 
 
 class ValkeyStore:
-    """Own one GLIDE client and hide topology-specific connection behavior."""
+    """Own one GLIDE client and handle the three connection choices."""
 
     def __init__(self, settings: AppSettings) -> None:
         self._settings = settings
@@ -105,12 +105,15 @@ class ValkeyStore:
         self._client.close()
 
     def _run(self, operation: Callable[[DataClient], T]) -> T:
+        # GLIDE handles normal errors for standalone and cluster connections.
         if self._settings.topology is not Topology.SENTINEL:
             try:
                 return operation(self._client)
             except GlideError as error:
                 raise ValkeyUnavailable("Valkey operation failed") from error
 
+        # Sentinel may point to a new primary after a failure. The lock keeps
+        # two threads from replacing the shared client at the same time.
         with self._sentinel_lock:
             try:
                 return operation(self._client)
@@ -129,6 +132,7 @@ class ValkeyStore:
                     ) from retry_error
 
     def _connect(self) -> DataClient:
+        # Cluster mode needs the cluster-aware GLIDE client.
         if self._settings.topology is Topology.CLUSTER:
             return GlideClusterClient.create(
                 GlideClusterClientConfiguration(
@@ -141,11 +145,14 @@ class ValkeyStore:
                 )
             )
 
+        # Sentinel is a discovery service. Ask it for the primary, then create
+        # a normal standalone client that sends data commands to that primary.
         if self._settings.topology is Topology.SENTINEL:
             primary = self._discover_sentinel_primary()
             self._discovered_primary = primary
             return self._create_standalone_client([primary], static=True)
 
+        # Standalone mode connects directly to the configured data nodes.
         return self._create_standalone_client(
             list(self._settings.addresses()),
             static=False,
@@ -173,6 +180,8 @@ class ValkeyStore:
         )
 
     def _replace_sentinel_client(self) -> None:
+        # Build the replacement before closing the old client. This keeps the
+        # store usable if discovery fails.
         old_client = self._client
         primary = self._discover_sentinel_primary()
         replacement = self._create_standalone_client([primary], static=True)
@@ -185,6 +194,7 @@ class ValkeyStore:
         for sentinel in self._settings.addresses():
             client: GlideClient | None = None
             try:
+                # Try each Sentinel address until one returns a valid primary.
                 client = GlideClient.create(
                     GlideClientConfiguration(
                         addresses=self._node_addresses([sentinel]),
@@ -216,6 +226,8 @@ class ValkeyStore:
             except (GlideError, ValueError) as error:
                 errors.append(f"{self._format_address(sentinel)}: {error}")
             finally:
+                # Use discovery clients only while asking Sentinel. Create the
+                # data client later in _connect() or _replace_sentinel_client().
                 if client is not None:
                     client.close()
 

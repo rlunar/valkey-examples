@@ -38,15 +38,28 @@ The default values require no credentials and publish Flask at
 Display these files before starting the runtime:
 
 ```shell
-bat --paging=never --style=numbers src/valkey_flask_demo/app.py
-bat --paging=never --style=numbers src/valkey_flask_demo/store.py
-bat --paging=never --style=numbers compose.yaml
+gum style --bold "Routes call the CounterStore interface"
+bat --paging=never --style=numbers \
+  --highlight-line 68:77 \
+  --highlight-line 111:134 \
+  src/valkey_flask_demo/app.py
+
+gum style --bold "Topology selection stays inside ValkeyStore"
+bat --paging=never --style=numbers \
+  --highlight-line 107:159 \
+  --highlight-line 192:235 \
+  src/valkey_flask_demo/store.py
+
+gum style --bold "Application and infrastructure services"
+bat --paging=never --style=numbers compose.yaml ../../../infra/compose.yaml
 ```
 
 Use [`app.py`](../src/valkey_flask_demo/app.py) to show that routes call the
 `CounterStore` interface, [`store.py`](../src/valkey_flask_demo/store.py) to
-show where topology selection lives, and [`compose.yaml`](../compose.yaml) to
-show the three local profiles.
+show where topology selection lives, [`compose.yaml`](../compose.yaml) to show
+the Flask services, and the [shared infrastructure
+Compose file](../../../../infra/compose.yaml) to show the three database
+profiles.
 
 Suggested narration:
 
@@ -106,7 +119,8 @@ reports the selected topology.
 Inspect the structured request logs:
 
 ```shell
-docker compose --profile standalone logs --tail=20 app-standalone
+source scripts/common.sh
+TOPOLOGY=standalone compose logs --tail=20 app-standalone
 ```
 
 Each request-completion log includes a request ID, topology, operation,
@@ -162,7 +176,8 @@ creates the process-lifetime data client for the discovered primary.
 Optional log view:
 
 ```shell
-docker compose --profile sentinel logs --tail=30 app-sentinel
+source scripts/common.sh
+TOPOLOGY=sentinel compose logs --tail=30 app-sentinel
 ```
 
 Stop the Sentinel profile:
@@ -223,8 +238,8 @@ Expected result:
 HTTP/1.1 400 BAD REQUEST
 ```
 
-The response explains the accepted counter-name pattern. This demonstrates
-that request validation happens before the key reaches Valkey.
+The response explains the accepted counter-name pattern. You can see that the
+application validates the request before the key reaches Valkey.
 
 Finish with:
 
@@ -249,19 +264,16 @@ demo because it intentionally starts and stops every topology.
 If startup fails, inspect the selected application service:
 
 ```shell
-docker compose --profile standalone logs --tail=100 app-standalone
-docker compose --profile sentinel logs --tail=100 app-sentinel
-docker compose --profile cluster logs --tail=100 app-cluster
+source scripts/common.sh
+TOPOLOGY=standalone compose logs --tail=100 app-standalone
+TOPOLOGY=sentinel compose logs --tail=100 app-sentinel
+TOPOLOGY=cluster compose logs --tail=100 app-cluster
 ```
 
 Then remove only this capsule's resources:
 
 ```shell
-docker compose \
-  --profile standalone \
-  --profile sentinel \
-  --profile cluster \
-  down --remove-orphans --volumes
+make stop
 ```
 
 If port 8000 is busy, choose another loopback port:

@@ -24,16 +24,17 @@ def create_app(valkey: ValkeyClient | None = None) -> Flask:
     @app.route("/value", methods=["GET", "POST", "DELETE"])
     def value() -> tuple[Any, int]:
         if request.method == "POST":
-            stored = request.get_json()["value"]
-            valkey.client.set(DEMO_KEY, stored)
-            return jsonify({"value": stored}), 200
+            requested_value = request.get_json()["value"]
+            valkey.client.set(DEMO_KEY, requested_value)
+            return jsonify({"value": requested_value}), 200
 
         if request.method == "DELETE":
             valkey.client.delete([DEMO_KEY])
             return jsonify({"deleted": True}), 200
 
-        stored = valkey.client.get(DEMO_KEY)
-        return jsonify({"value": stored.decode() if stored is not None else None}), 200
+        stored_bytes = valkey.client.get(DEMO_KEY)
+        stored_value = stored_bytes.decode() if stored_bytes is not None else None
+        return jsonify({"value": stored_value}), 200
 
     return app
 

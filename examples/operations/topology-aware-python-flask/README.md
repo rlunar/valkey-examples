@@ -1,18 +1,50 @@
 # Topology-Aware Flask Application with Python and GLIDE
 
-This demo is a maintainable starting point for synchronous Flask examples that
-need Valkey. The same application connects to standalone Valkey, a
-Sentinel-managed primary, or Valkey Cluster through one small store interface.
+You run the same Flask counter application with three Valkey setups: one
+server, a primary watched by Sentinel, or a cluster. You keep the Flask routes
+the same and change only the connection code.
 
-It is intended for demo authors who want configuration, lifecycle,
-observability, tests, and cleanup already in place without turning the capsule
-into a framework or reusable library.
+**Level:** [`L300` — Advanced](../../../docs/authoring.md#choose-the-level)
 
 > [!IMPORTANT]
 > This is an educational local environment, not a production architecture.
 > Valkey runs without authentication or TLS, and Sentinel support is an
 > application-owned discovery adapter because Valkey GLIDE does not currently
 > expose a native Sentinel client.
+
+## Start here
+
+You should know Python classes, Flask routes, and basic Valkey commands. You do
+not need prior Sentinel or OpenTelemetry experience.
+
+The application follows this path:
+
+1. settings choose standalone, Sentinel, or cluster;
+2. `ValkeyStore` opens the matching GLIDE connection;
+3. every route calls the same `get`, `increment`, or `delete` method;
+4. Sentinel mode asks Sentinel which node is the current primary; and
+5. request logs record the selected setup and timing.
+
+Key words:
+
+- **topology:** the way Valkey servers are arranged;
+- **Sentinel:** a separate process that watches a primary and can promote a
+  replica;
+- **discovery:** asking where the current primary is;
+- **store:** the class that owns Valkey commands and connections; and
+- **telemetry:** logs and traces that show what the application did.
+
+Think of Sentinel as Mission Control: several processes watch the primary,
+agree when it has failed, and coordinate a replacement.
+
+Read the code in this order:
+
+1. [`app.py`](src/valkey_flask_demo/app.py) for the routes;
+2. [`store.py`](src/valkey_flask_demo/store.py) for connection choices;
+3. [`config.py`](src/valkey_flask_demo/config.py) for environment settings;
+   and
+4. [`telemetry.py`](src/valkey_flask_demo/telemetry.py) last, because logging
+   and trace export are optional to the counter lesson.
 
 ## What you will learn
 
@@ -25,16 +57,24 @@ You will run one Flask application against three Valkey topologies and observe:
 - OpenTelemetry-enriched JSON request logs; and
 - identical counter behavior through every topology.
 
-The primary implementation is
-[`src/valkey_flask_demo/store.py`](src/valkey_flask_demo/store.py). It hides
-GLIDE configuration, Sentinel discovery, byte decoding, reconnect behavior,
-and topology reporting behind the `CounterStore` interface.
+Most of the Valkey logic is in
+[`store.py`](src/valkey_flask_demo/store.py). The routes call a small set of
+methods and do not need to know how each connection works.
 
 ## Documentation
 
 - [Design and pseudocode](docs/DESIGN.md)
 - [Step-by-step demo runbook](docs/DEMO.md)
-- [Build-from-scratch video tutorial](docs/TUTORIAL.md)
+- [Build-from-scratch tutorial](docs/TUTORIAL.md)
+- [Short reel script](docs/SCRIPT_REEL.md)
+- [Longer tutorial-video script](docs/SCRIPT_VIDEO.md)
+
+## Shared infrastructure
+
+[`example.yaml`](example.yaml) points to the root
+[infrastructure capsule](../../../infra/README.md) and selects
+`valkey-standalone`, `valkey-sentinel`, or `valkey-cluster-3`. The local
+`compose.yaml` contains only the Flask application variants.
 
 ## Prerequisites
 
@@ -117,6 +157,11 @@ flowchart LR
     caller["HTTP caller"] -->|"127.0.0.1:8000"| flask["FlaskDemo"]
     flask -->|"CounterStore"| store["ValkeyStore"]
     flask --> logs["JSON logs with trace_id and span_id"]
+    infra["Shared infra capsule"] --> standalone
+    infra --> sentinels
+    infra --> primary
+    infra --> replica
+    infra --> cluster
 
     store -->|"standalone"| standaloneClient["GLIDE GlideClient"]
     standaloneClient --> standalone["Standalone Valkey"]
@@ -131,8 +176,9 @@ flowchart LR
     clusterClient --> cluster["Three-node Valkey Cluster"]
 ```
 
-Only the Flask port is published. The Valkey processes communicate over a
-private Compose network.
+Only the Flask port is published. The shared infrastructure capsule creates
+the Valkey and Sentinel processes inside the capsule-isolated private Compose
+network.
 
 ## Request and recovery flow
 
@@ -200,7 +246,7 @@ topology-specific addresses automatically.
 | `OTEL_SERVICE_NAME` | `valkey-flask-demo` | OpenTelemetry service resource |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | Optional OTLP HTTP base endpoint |
 
-When an OTLP endpoint is configured, the application appends `/v1/traces` and
+When you configure an OTLP endpoint, the application appends `/v1/traces` and
 `/v1/logs`. GLIDE traces use the same trace endpoint. The console remains
 readable JSON and includes `trace_id` and `span_id`.
 

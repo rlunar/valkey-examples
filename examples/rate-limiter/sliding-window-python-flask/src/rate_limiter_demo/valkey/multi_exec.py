@@ -28,14 +28,21 @@ class MultiExecRateLimiter:
     def check(self, identity: str, policy: RateLimitPolicy, request_id: str) -> RateLimitDecision:
         key = rate_limit_key(self._key_prefix, policy, identity)
 
+        # WATCH state belongs to the connection, so one thread uses this
+        # client's transaction sequence at a time.
         with self._connection_lock:
             for _attempt in range(self._max_retries):
                 watched = False
                 try:
+                    # 1. Watch the key so EXEC can detect another writer.
                     self._client.watch([key])
                     watched = True
+
+                    # 2. Use Valkey's clock and find the start of the window.
                     now_ms = server_time_ms(self._client)
                     cutoff_ms = now_ms - policy.window_ms
+
+                    # 3. Count requests that are still inside the window.
                     active_count = self._client.zcount(
                         key,
                         ScoreBoundary(cutoff_ms, is_inclusive=False),
@@ -43,6 +50,8 @@ class MultiExecRateLimiter:
                     )
                     allowed = active_count < policy.limit
 
+                    # 4. Build one transaction. It removes old requests, adds
+                    # this request when allowed, then reads the updated state.
                     transaction = Batch(is_atomic=True)
                     transaction.zremrangebyscore(
                         key,
@@ -56,14 +65,17 @@ class MultiExecRateLimiter:
                     transaction.zcard(key)
                     transaction.zrange_withscores(key, RangeByIndex(0, 0))
 
+                    # 5. EXEC returns None when the watched key changed.
+                    # Retry from step 1 so the count is read again.
                     result = self._client.exec(transaction, raise_on_error=True)
                     watched = False
                     if result is None:
                         continue
 
+                    # 6. Convert the transaction result into the HTTP decision.
                     result_count_raw = result[-2]
                     if not isinstance(result_count_raw, int):
-                        raise ValueError("Valkey transaction returned an invalid cardinality")
+                        raise ValueError("Valkey transaction returned an invalid request count")
                     result_count = result_count_raw
                     result_oldest = oldest_score(result[-1], now_ms)
                     return build_decision(
@@ -78,6 +90,7 @@ class MultiExecRateLimiter:
                         "Valkey transaction could not produce a decision"
                     ) from error
                 finally:
+                    # An exception before EXEC leaves WATCH active.
                     if watched:
                         self._client.unwatch()
 

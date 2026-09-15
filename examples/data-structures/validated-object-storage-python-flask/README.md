@@ -1,10 +1,44 @@
 # Validated Object Storage with Pydantic
 
-This capsule extends the
+In this capsule, you extend the
 [Valkey GLIDE Flask quickstart](../../operations/client-quickstart-python-flask/)
-with typed object validation and serialization. It stores physical and digital
-products as JSON in ordinary Valkey strings and reconstructs the correct
-Pydantic type when they are read.
+with typed object validation and serialization. You store physical and digital
+products as JSON in ordinary Valkey strings. When you read them, Pydantic
+reconstructs the correct product type.
+
+**Level:** [`L200` — Intermediate](../../../docs/authoring.md#choose-the-level)
+
+## Start here
+
+You should know basic Python classes, dictionaries, JSON, and Flask routes.
+This capsule adds one idea: check an object before storing it.
+
+The program follows this path:
+
+1. Flask receives product JSON;
+2. Pydantic checks every field;
+3. Valkey stores valid products as JSON text;
+4. reads turn that JSON back into a Python product; and
+5. invalid products return HTTP 422 without reaching Valkey.
+
+Key words:
+
+- **validation:** checking that data has the expected type and allowed value;
+- **serialization:** turning a Python object into JSON for storage;
+- **variant:** one allowed shape of a product, either physical or digital;
+- **discriminator:** the `kind` field that chooses the product variant; and
+- **UUID:** a long identifier used as the product ID.
+
+Pydantic plays the bouncer at the Mos Eisley cantina: data with the wrong
+fields does not get through the door to Valkey.
+
+Read the code in this order:
+
+1. [`models.py`](src/validated_objects/models.py) for the validation rules;
+2. [`app.py`](src/validated_objects/app.py) for the HTTP routes;
+3. [`valkey_client.py`](src/validated_objects/valkey_client.py) for storage;
+   and
+4. [`scripts/demo.py`](scripts/demo.py) for the example products.
 
 ## What you will see
 
@@ -22,7 +56,16 @@ The domain vocabulary is recorded in [CONTEXT.md](CONTEXT.md).
 
 - [Design, architecture, and pseudocode](docs/DESIGN.md)
 - [Step-by-step demo runbook](docs/DEMO.md)
-- [Build-from-scratch video tutorial](docs/TUTORIAL.md)
+- [Build-from-scratch tutorial](docs/TUTORIAL.md)
+- [Short reel script](docs/SCRIPT_REEL.md)
+- [Longer tutorial-video script](docs/SCRIPT_VIDEO.md)
+
+## Shared infrastructure
+
+[`example.yaml`](example.yaml) points to the root
+[infrastructure capsule](../../../infra/README.md) and selects
+`valkey-standalone-replicated` or `valkey-cluster-6`. This capsule's
+`compose.yaml` contains only the Flask application services.
 
 ## Architecture
 
@@ -45,6 +88,7 @@ flowchart LR
     end
 
     topology["Topology selection<br/>VALKEY_MODE"]
+    infra["Shared infra capsule<br/>replicated standalone | 6-node cluster"]
 
     subgraph deployment["Selected Valkey deployment"]
         standalone["Standalone<br/>1 primary + 1 replica"]
@@ -53,13 +97,14 @@ flowchart LR
 
     caller -->|"POST / GET / DELETE"| flask
     client -->|"GLIDE connection"| topology
-    topology -->|"standalone"| standalone
-    topology -->|"cluster"| cluster
+    topology --> infra
+    infra -->|"standalone"| standalone
+    infra -->|"cluster"| cluster
 ```
 
-Only one deployment branch runs at a time. On writes, validation happens before
-`SET`; on reads, stored JSON is validated again to reconstruct the correct
-physical or digital product type.
+Only one deployment branch runs at a time. On writes, Pydantic validates the
+product before `SET`. On reads, Pydantic validates the stored JSON again and
+reconstructs the correct physical or digital product type.
 
 ## Quick walkthrough
 
@@ -173,11 +218,11 @@ downloads, and 15 minutes for the first full verification.
 
 ## Security and production limitations
 
-Flask binds to loopback. Valkey stays on the private Compose network but uses
-no authentication or TLS. This demonstration has no schema migration,
-secondary indexes, concurrency controls, or compatibility policy for old
-objects. It is not an object-mapping framework or production deployment
-reference.
+Flask binds to loopback. The shared infrastructure capsule keeps Valkey on the
+private Compose network but uses no authentication or TLS. This demonstration
+has no plan for changing old saved objects when the model changes. It also has
+no search index or protection against two writers changing the same product at
+once. It is not a production object-storage system.
 
 The default journey requires no credentials and uses no third-party data.
 Repository-authored content is MIT licensed; dependencies and images retain

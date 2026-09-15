@@ -3,6 +3,7 @@ proposal: Minimal Valkey GLIDE Python connection
 status: Approved
 kind: demo
 capability: operations
+level: L100
 language: python
 client: valkey-glide-sync
 proposed_path: examples/operations/client-connection-glide-python
@@ -61,7 +62,7 @@ The planned tree is:
 
 ```text
 examples/operations/client-connection-glide-python/
-├── compose.yaml
+├── compose.yaml              # application service only
 ├── docs/
 │   ├── DEMO.md
 │   ├── DESIGN.md
@@ -96,9 +97,10 @@ flowchart LR
 The capsule implements `make setup`, `make start`, `make demo`, `make verify`,
 `make reset`, and `make stop`.
 
-`VALKEY_MODE=standalone` in `.env` selects the standalone Compose profile.
-Changing the mode and addresses to the documented cluster values selects the
-cluster profile.
+`example.yaml` points to the root `infra/` capsule. `VALKEY_MODE=standalone`
+selects its private single-node profile; changing the mode and addresses to the
+documented cluster values selects its three-primary profile. The capsule-local
+Compose file contains only the application service.
 
 Unit tests exercise the visible application behavior and client selection.
 Real integration checks run the same `app.py` command against both topologies.

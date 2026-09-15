@@ -22,11 +22,13 @@ class ValkeyClient:
     """Expose one GLIDE client configured entirely by the environment."""
 
     def __init__(self) -> None:
+        # Turn comma-separated "host:port" text into GLIDE address objects.
         addresses = []
         for address in os.environ["VALKEY_ADDRESSES"].split(","):
             host, port = address.strip().rsplit(":", maxsplit=1)
             addresses.append(NodeAddress(host=host, port=int(port)))
 
+        # Only connection creation changes. The Flask routes use the same API.
         if os.environ["VALKEY_MODE"] == "cluster":
             self.client: GlideClientType = GlideClusterClient.create(
                 GlideClusterClientConfiguration(addresses=addresses)

@@ -9,7 +9,7 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class RateLimitPolicy:
-    """A named sliding-window policy."""
+    """The request limit and time window for one named rule."""
 
     policy_id: str
     limit: int
@@ -18,7 +18,7 @@ class RateLimitPolicy:
 
 @dataclass(frozen=True, slots=True)
 class RateLimitDecision:
-    """The complete result of one admission decision."""
+    """The result of checking one request."""
 
     allowed: bool
     limit: int

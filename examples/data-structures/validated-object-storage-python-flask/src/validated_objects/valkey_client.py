@@ -27,6 +27,7 @@ class ValkeyClient:
     key_prefix = "valkey-examples:validated-object:product"
 
     def __init__(self) -> None:
+        # Convert comma-separated "host:port" text into GLIDE addresses.
         addresses = []
         for address in os.environ["VALKEY_ADDRESSES"].split(","):
             host, port = address.strip().rsplit(":", maxsplit=1)
@@ -47,10 +48,10 @@ class ValkeyClient:
     def get(self, product_id: UUID) -> Product | None:
         """Read and reconstruct the correct product variant."""
 
-        stored = self.client.get(self._key(product_id))
-        if stored is None:
+        stored_json = self.client.get(self._key(product_id))
+        if stored_json is None:
             return None
-        return PRODUCT_ADAPTER.validate_json(stored)
+        return PRODUCT_ADAPTER.validate_json(stored_json)
 
     def delete(self, product_id: UUID) -> bool:
         """Delete one UUID-derived product key."""

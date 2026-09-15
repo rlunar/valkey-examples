@@ -4,6 +4,7 @@ status: Draft
 date: 2026-08-24
 kind: Demo
 capability: Rate limiter
+level: L300
 proposed_path: examples/rate-limiter/sliding-window-python-flask
 ---
 
@@ -101,7 +102,6 @@ examples/rate-limiter/sliding-window-python-flask/
 ├── DESIGN.md
 ├── Makefile
 ├── Brewfile
-├── compose.yaml
 ├── .env.example
 ├── .gitignore
 ├── .python-version
@@ -116,8 +116,7 @@ examples/rate-limiter/sliding-window-python-flask/
 │   ├── reset.sh
 │   ├── start.sh
 │   ├── stop.sh
-│   ├── test-real.sh
-│   └── wait_for_http.py
+│   └── test-real.sh
 ├── src/
 │   └── rate_limiter_demo/
 │       ├── __init__.py
@@ -142,7 +141,9 @@ examples/rate-limiter/sliding-window-python-flask/
 The capsule includes a reader-focused `DESIGN.md` derived from this proposal.
 
 Directories will be added only when they contain required files. No shared
-repository runtime package will be introduced.
+application runtime package will be introduced. `example.yaml` points to the
+root `infra/` capsule for the host-published Valkey process and shared
+lifecycle orchestration.
 
 ## Quick demo experience
 
@@ -256,10 +257,10 @@ flowchart LR
     glide --> valkey
 ```
 
-Only Valkey runs in Docker in the default journey. The Flask process runs on
-the host through uv. Configuration chooses one adapter during application
-startup, while both adapters reach the same Valkey sorted-set representation
-through the synchronous GLIDE client.
+Only Valkey runs in Docker in the default journey, supplied by the shared
+`infra/` capsule. The Flask process runs on the host through uv. Configuration
+chooses one adapter during application startup, while both adapters reach the
+same Valkey sorted-set representation through the synchronous GLIDE client.
 
 This separation is intentional: the checked-out GLIDE Python project supports
 Python 3.13 and provides a synchronous package, but explicitly does not support

@@ -2,18 +2,15 @@
 
 set -euo pipefail
 
-capsule_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$capsule_root"
+# shellcheck source=scripts/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 cleanup() {
-  docker compose \
-    --profile standalone \
-    --profile cluster \
-    down --remove-orphans --volumes >/dev/null 2>&1 || true
+  compose_all down --remove-orphans --volumes >/dev/null 2>&1 || true
 }
 trap cleanup EXIT INT TERM
 
-for topology in standalone cluster; do
+for topology in $CAPSULE_TOPOLOGIES; do
   if [[ "$topology" == "cluster" ]]; then
     addresses="cluster-node-1:6379,cluster-node-2:6379,cluster-node-3:6379"
   else
@@ -38,7 +35,7 @@ for topology in standalone cluster; do
   TOPOLOGY="$topology" \
     VALKEY_ADDRESSES="$addresses" \
     VALKEY_MESSAGE="$message" \
-    docker compose --profile "$topology" run \
+    compose run \
       --rm \
       --no-deps \
       -e VALKEY_MODE="$topology" \

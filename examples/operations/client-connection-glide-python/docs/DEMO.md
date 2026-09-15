@@ -2,7 +2,7 @@
 
 ## Goal
 
-Record one topology per take. The viewer should see:
+Record one topology per take. You should show:
 
 1. dotenv configuration;
 2. the standalone or cluster GLIDE constructor;
@@ -30,7 +30,9 @@ Confirm the selected services:
 
 ```shell
 yq '.services | keys' compose.yaml
-docker compose --profile standalone ps
+yq '.services | keys' ../../../infra/compose.yaml
+source scripts/common.sh
+compose ps
 ```
 
 ## Record the 30-second take
@@ -38,7 +40,11 @@ docker compose --profile standalone ps
 ### 0-12 seconds: show the whole application
 
 ```shell
-bat --paging=never --style=numbers src/valkey_connection/app.py
+gum style --bold "GLIDE connection, SET, GET, and cleanup"
+bat --paging=never --style=numbers \
+  --highlight-line 23:36 \
+  --highlight-line 39:59 \
+  src/valkey_connection/app.py
 ```
 
 Suggested narration:
@@ -60,15 +66,18 @@ hello from GLIDE
 
 Suggested narration:
 
-> That value was written to Valkey, read back, decoded, and printed.
+> The application wrote that value to Valkey, read it back, decoded it, and
+> printed it.
 
 ### 25-30 seconds: close
 
-Point to:
+Display the cleanup lines:
 
-```python
-finally:
-    client.close()
+```shell
+gum style --bold "Always close the client"
+bat --paging=never --style=numbers \
+  --highlight-line 55:59 \
+  src/valkey_connection/app.py
 ```
 
 Finish with:
@@ -124,22 +133,21 @@ make verify
 Inspect the selected topology:
 
 ```shell
-docker compose --profile standalone ps
-docker compose --profile cluster ps
+source scripts/common.sh
+TOPOLOGY=standalone compose ps
+TOPOLOGY=cluster compose ps
 ```
 
 Inspect Valkey logs:
 
 ```shell
-docker compose --profile standalone logs --tail=100 standalone
-docker compose --profile cluster logs --tail=100 cluster-node-1
+source scripts/common.sh
+TOPOLOGY=standalone compose logs --tail=100 standalone
+TOPOLOGY=cluster compose logs --tail=100 cluster-node-1
 ```
 
 Remove only this capsule's resources:
 
 ```shell
-docker compose \
-  --profile standalone \
-  --profile cluster \
-  down --remove-orphans --volumes
+make stop
 ```

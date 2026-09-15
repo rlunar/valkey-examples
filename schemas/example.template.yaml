@@ -1,10 +1,15 @@
-schema_version: 1
+schema_version: 2
 id: cache-aside-python
 title: Cache-aside with safe invalidation
 kind: cookbook
 capability: caching
+level: L100
 languages:
   - python
+infrastructure:
+  capsule: ../../../infra
+  profiles:
+    - valkey-standalone-host
 owners:
   primary: github-handle
   backup: second-github-handle

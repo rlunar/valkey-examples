@@ -1,0 +1,287 @@
+name: ${COMPOSE_PROJECT_NAME:-valkey-examples-infra}
+
+x-valkey-image: &valkey-image
+  image: ${VALKEY_IMAGE:-valkey/valkey:9.1.1-alpine@sha256:15568b9cb7eb67f4aed4de018c23f13d344e0e6437b31fe8fb8823dc81ebb3a9}
+
+x-valkey-container: &valkey-container
+  <<: *valkey-image
+  restart: "no"
+  networks:
+    - demo
+  security_opt:
+    - no-new-privileges:true
+
+x-valkey: &valkey
+  <<: *valkey-container
+  command:
+    - valkey-server
+    - /etc/valkey/valkey.conf
+  volumes:
+    - ${INFRA_ROOT:-.}/valkey/valkey.conf:/etc/valkey/valkey.conf:ro
+  healthcheck:
+    test: ["CMD", "valkey-cli", "-h", "127.0.0.1", "-p", "6379", "ping"]
+    interval: 1s
+    timeout: 1s
+    retries: 30
+    start_period: 2s
+
+x-ephemeral-valkey: &ephemeral-valkey
+  <<: *valkey
+  tmpfs:
+    - /data
+
+x-cluster-node: &cluster-node
+  <<: *valkey
+  command:
+    - /bin/sh
+    - -c
+    - >-
+      exec valkey-server
+      /etc/valkey/valkey.conf
+      --cluster-enabled yes
+      --cluster-config-file /data/nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-hostname "$${HOSTNAME}"
+      --cluster-announce-port 6379
+      --cluster-announce-bus-port 16379
+      --cluster-preferred-endpoint-type hostname
+  tmpfs:
+    - /data
+
+x-sentinel: &sentinel
+  <<: *valkey-container
+  profiles: ["valkey-sentinel"]
+  command:
+    - /bin/sh
+    - -c
+    - cp /etc/valkey/sentinel.conf /tmp/sentinel.conf && exec valkey-sentinel /tmp/sentinel.conf
+  volumes:
+    - ${INFRA_ROOT:-.}/sentinel/sentinel.conf:/etc/valkey/sentinel.conf:ro
+  tmpfs:
+    - /tmp
+  healthcheck:
+    test: ["CMD", "valkey-cli", "-h", "127.0.0.1", "-p", "26379", "ping"]
+    interval: 1s
+    timeout: 1s
+    retries: 30
+    start_period: 2s
+  depends_on:
+    sentinel-primary:
+      condition: service_healthy
+    sentinel-replica:
+      condition: service_healthy
+
+services:
+  valkey:
+    <<: *ephemeral-valkey
+    profiles: ["valkey-standalone-host"]
+    labels:
+      io.valkey.examples.capsule: ${CAPSULE_ID:-shared-infra}
+    ports:
+      - "127.0.0.1:${VALKEY_PORT:-6379}:6379"
+
+  valkey-tls:
+    <<: *valkey-container
+    profiles: ["valkey-standalone-tls-host"]
+    command:
+      - valkey-server
+      - /etc/valkey/valkey-tls.conf
+    volumes:
+      - ${INFRA_ROOT:-.}/valkey/valkey.conf:/etc/valkey/valkey.conf:ro
+      - ${INFRA_ROOT:-.}/valkey/valkey-tls.conf:/etc/valkey/valkey-tls.conf:ro
+      - ${TLS_CERT_DIR:-./.cache/tls}/ca.crt:/tls/ca.crt:ro
+      - ${TLS_CERT_DIR:-./.cache/tls}/client.crt:/tls/client.crt:ro
+      - ${TLS_CERT_DIR:-./.cache/tls}/client.key:/tls/client.key:ro
+      - ${TLS_CERT_DIR:-./.cache/tls}/server.crt:/tls/server.crt:ro
+      - ${TLS_CERT_DIR:-./.cache/tls}/server.key:/tls/server.key:ro
+    tmpfs:
+      - /data
+    labels:
+      io.valkey.examples.capsule: ${CAPSULE_ID:-shared-infra}
+    ports:
+      - "127.0.0.1:${VALKEY_TLS_PORT:-6380}:6379"
+    healthcheck:
+      test:
+        - CMD
+        - valkey-cli
+        - --tls
+        - --cacert
+        - /tls/ca.crt
+        - --cert
+        - /tls/client.crt
+        - --key
+        - /tls/client.key
+        - -h
+        - 127.0.0.1
+        - -p
+        - "6379"
+        - ping
+      interval: 1s
+      timeout: 2s
+      retries: 30
+      start_period: 2s
+
+  standalone:
+    <<: *ephemeral-valkey
+    profiles: ["valkey-standalone"]
+
+  standalone-primary:
+    <<: *ephemeral-valkey
+    profiles: ["valkey-standalone-replicated"]
+
+  standalone-replica:
+    <<: *ephemeral-valkey
+    profiles: ["valkey-standalone-replicated"]
+    command:
+      - valkey-server
+      - /etc/valkey/valkey.conf
+      - --replicaof
+      - standalone-primary
+      - "6379"
+    depends_on:
+      standalone-primary:
+        condition: service_healthy
+
+  sentinel-primary:
+    <<: *ephemeral-valkey
+    profiles: ["valkey-sentinel"]
+
+  sentinel-replica:
+    <<: *ephemeral-valkey
+    profiles: ["valkey-sentinel"]
+    command:
+      - valkey-server
+      - /etc/valkey/valkey.conf
+      - --replicaof
+      - sentinel-primary
+      - "6379"
+    depends_on:
+      sentinel-primary:
+        condition: service_healthy
+
+  sentinel-1:
+    <<: *sentinel
+
+  sentinel-2:
+    <<: *sentinel
+
+  sentinel-3:
+    <<: *sentinel
+
+  cluster-node-1:
+    <<: *cluster-node
+    profiles: ["valkey-cluster-3", "valkey-cluster-6"]
+    hostname: cluster-node-1
+
+  cluster-node-2:
+    <<: *cluster-node
+    profiles: ["valkey-cluster-3", "valkey-cluster-6"]
+    hostname: cluster-node-2
+
+  cluster-node-3:
+    <<: *cluster-node
+    profiles: ["valkey-cluster-3", "valkey-cluster-6"]
+    hostname: cluster-node-3
+
+  cluster-node-4:
+    <<: *cluster-node
+    profiles: ["valkey-cluster-6"]
+    hostname: cluster-node-4
+
+  cluster-node-5:
+    <<: *cluster-node
+    profiles: ["valkey-cluster-6"]
+    hostname: cluster-node-5
+
+  cluster-node-6:
+    <<: *cluster-node
+    profiles: ["valkey-cluster-6"]
+    hostname: cluster-node-6
+
+  cluster-init-3:
+    <<: *valkey-image
+    profiles: ["valkey-cluster-3"]
+    restart: "no"
+    command:
+      - valkey-cli
+      - --cluster
+      - create
+      - cluster-node-1:6379
+      - cluster-node-2:6379
+      - cluster-node-3:6379
+      - --cluster-yes
+    networks:
+      - demo
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      cluster-node-1:
+        condition: service_healthy
+      cluster-node-2:
+        condition: service_healthy
+      cluster-node-3:
+        condition: service_healthy
+
+  cluster-init-6:
+    <<: *valkey-image
+    profiles: ["valkey-cluster-6"]
+    restart: "no"
+    command:
+      - valkey-cli
+      - --cluster
+      - create
+      - cluster-node-1:6379
+      - cluster-node-2:6379
+      - cluster-node-3:6379
+      - cluster-node-4:6379
+      - cluster-node-5:6379
+      - cluster-node-6:6379
+      - --cluster-replicas
+      - "1"
+      - --cluster-yes
+    networks:
+      - demo
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      cluster-node-1:
+        condition: service_healthy
+      cluster-node-2:
+        condition: service_healthy
+      cluster-node-3:
+        condition: service_healthy
+      cluster-node-4:
+        condition: service_healthy
+      cluster-node-5:
+        condition: service_healthy
+      cluster-node-6:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17.6@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929
+    profiles: ["postgres"]
+    restart: "no"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-valkey_examples}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-example-only}
+      POSTGRES_USER: ${POSTGRES_USER:-valkey_examples}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks:
+      - demo
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 1s
+      timeout: 2s
+      retries: 30
+      start_period: 2s
+
+networks:
+  demo:
+    driver: bridge

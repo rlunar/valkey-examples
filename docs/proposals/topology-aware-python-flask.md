@@ -3,6 +3,7 @@ proposal: Topology-aware Flask application with Python, GLIDE, and Valkey
 status: Approved
 kind: demo
 capability: operations
+level: L300
 language: python
 client: valkey-glide-sync
 proposed_path: examples/operations/topology-aware-python-flask
@@ -90,15 +91,12 @@ examples/operations/topology-aware-python-flask/
 ├── Dockerfile
 ├── Makefile
 ├── README.md
-├── compose.yaml
+├── compose.yaml              # application services only
 ├── docs/
 │   ├── DEMO.md
 │   ├── DESIGN.md
 │   └── TUTORIAL.md
 ├── example.yaml
-├── infra/
-│   └── sentinel/
-│       └── sentinel.conf
 ├── pyproject.toml
 ├── scripts/
 │   ├── common.sh
@@ -106,8 +104,7 @@ examples/operations/topology-aware-python-flask/
 │   ├── reset.py
 │   ├── start.sh
 │   ├── stop.sh
-│   ├── test-real.sh
-│   └── wait_for_http.py
+│   └── test-real.sh
 ├── src/
 │   └── valkey_flask_demo/
 │       ├── __init__.py
@@ -242,6 +239,11 @@ The stable capsule interface is:
 
 `TOPOLOGY=standalone` is the default. `TOPOLOGY=sentinel` and
 `TOPOLOGY=cluster` select the other profiles.
+
+`example.yaml` points to the root `infra/` capsule. That shared capsule owns
+the standalone, Sentinel, and three-primary cluster services, including the
+Sentinel configuration. The local Compose file owns only the three Flask
+application variants.
 
 ## Verification
 

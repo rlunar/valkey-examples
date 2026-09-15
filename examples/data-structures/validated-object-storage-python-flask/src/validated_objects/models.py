@@ -16,6 +16,7 @@ from pydantic import (
     TypeAdapter,
 )
 
+# Annotated keeps the normal Python type and adds Pydantic validation rules.
 ProductName = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=3, max_length=80),
@@ -64,6 +65,7 @@ class DigitalProduct(ProductBase):
     file_size_bytes: int = Field(gt=0)
 
 
+# The "kind" field tells Pydantic which product class to build.
 type Product = Annotated[
     PhysicalProduct | DigitalProduct,
     Field(discriminator="kind"),

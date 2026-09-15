@@ -21,44 +21,25 @@ make setup
 ```
 
 The default demo uses the standalone primary and replica and publishes Flask
-at `http://127.0.0.1:8000`. HTTPie, jq, and bat are used for the
+at `http://127.0.0.1:8000`. You use HTTPie, jq, and bat for the
 presenter-facing commands.
 
 ## Part 1: show the object contract
 
 Display [`src/validated_objects/models.py`](../src/validated_objects/models.py)
-with syntax highlighting:
+with the variants and discriminator highlighted:
 
 ```shell
-bat --paging=never --style=numbers src/validated_objects/models.py
-```
-
-Highlight:
-
-```python
-type Product = Annotated[
-    PhysicalProduct | DigitalProduct,
-    Field(discriminator="kind"),
-]
-```
-
-Then show one validation difference:
-
-```python
-class PhysicalProduct(ProductBase):
-    stock: int = Field(ge=0)
-    weight_grams: int = Field(gt=0)
-
-
-class DigitalProduct(ProductBase):
-    download_url: HttpUrl
-    file_size_bytes: int = Field(gt=0)
+gum style --bold "Pydantic product variants"
+bat --paging=never --style=numbers \
+  --highlight-line 52:72 \
+  src/validated_objects/models.py
 ```
 
 Suggested narration:
 
 > `kind` selects the model. Physical and digital products share core fields,
-> but each type has fields that are required and validated for that type.
+> but Pydantic requires and validates different fields for each type.
 
 ## Part 2: show serialization
 
@@ -66,14 +47,10 @@ Display
 [`src/validated_objects/valkey_client.py`](../src/validated_objects/valkey_client.py):
 
 ```shell
-bat --paging=never --style=numbers src/validated_objects/valkey_client.py
-```
-
-Highlight:
-
-```python
-self.client.set(self._key(product.id), PRODUCT_ADAPTER.dump_json(product))
-return PRODUCT_ADAPTER.validate_json(stored)
+gum style --bold "JSON serialization and reconstruction"
+bat --paging=never --style=numbers \
+  --highlight-line 43:54 \
+  src/validated_objects/valkey_client.py
 ```
 
 Suggested narration:
@@ -237,15 +214,13 @@ FLASK_PORT=8010 make stop
 If startup fails:
 
 ```shell
-docker compose --profile standalone logs --tail=100 app-standalone
-docker compose --profile cluster logs --tail=100 app-cluster
+source scripts/common.sh
+TOPOLOGY=standalone compose logs --tail=100 app-standalone
+TOPOLOGY=cluster compose logs --tail=100 app-cluster
 ```
 
 Remove only this capsule's resources:
 
 ```shell
-docker compose \
-  --profile standalone \
-  --profile cluster \
-  down --remove-orphans --volumes
+make stop
 ```

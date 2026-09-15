@@ -1,10 +1,17 @@
-schema_version: 1
+schema_version: 2
 id: topology-aware-python-flask
 title: Topology-aware Flask application with Python and GLIDE
 kind: demo
 capability: operations
+level: L300
 languages:
   - python
+infrastructure:
+  capsule: ../../../infra
+  profiles:
+    - valkey-standalone
+    - valkey-sentinel
+    - valkey-cluster-3
 owners:
   primary: rlunar
   backup: valkey-io
