@@ -5,9 +5,22 @@
 Teach a true sliding-window log using Valkey sorted sets while making two
 atomicity techniques directly comparable behind one Python interface.
 
-The implementation uses Python 3.13+, uv, Flask, synchronous Valkey GLIDE, and
+The implementation uses Python 3.14+, uv, Flask, synchronous Valkey GLIDE, and
 Valkey 9.1.1 on the pinned Trixie image. `multi-exec` is the default; `lua` is
 selected through an immutable `pydantic-settings` configuration model.
+
+## Plain-language algorithm
+
+Think of the sorted set as a time-ordered list of accepted requests:
+
+1. remove entries older than the time window;
+2. count the entries that remain;
+3. deny the request if the count reached the limit;
+4. otherwise add the new request time; and
+5. report how long the caller must wait before space opens.
+
+The transaction and Lua versions perform these same five steps. They differ
+only in how they prevent two requests from changing the list at the same time.
 
 ## Components
 
@@ -52,13 +65,14 @@ The raw `X-Client-ID` is never placed in a key or demo state display.
 Each accepted request becomes one sorted-set member:
 
 ```text
-member = <server-time-ms>:<random-request-id>
+member = <server-time-ms>:<uuidv7-request-id>
 score  = <server-time-ms>
 ```
 
-The random request ID prevents same-millisecond requests from overwriting each
-other. Denied requests are not inserted. The key TTL is refreshed only after
-an accepted request, so inactive identities disappear without a cleanup job.
+The UUIDv7 request ID prevents same-millisecond requests from overwriting each
+other while preserving time-ordering. Denied requests are not inserted. The key
+TTL is refreshed only after an accepted request, so inactive identities
+disappear without a cleanup job.
 
 ## Decision semantics
 

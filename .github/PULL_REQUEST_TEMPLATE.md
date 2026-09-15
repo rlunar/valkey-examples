@@ -11,6 +11,7 @@ Describe the Valkey behavior and expected observable result.
 ## Verification
 
 - [ ] `example.yaml` validates against the repository schema.
+- [ ] The manifest and README declare the approved L100–L500 learning level.
 - [ ] `make setup`, `make start`, `make verify`, `make reset`, and `make stop` pass.
 - [ ] The journey uses real Valkey and released public dependencies.
 - [ ] Runtime and direct dependencies are pinned and application lockfiles are committed.

@@ -3,6 +3,7 @@
 Manifest tooling will validate:
 
 - `example.yaml` against `schemas/example.schema.json`;
+- the required L100–L500 learning level;
 - owner presence and repository review coverage;
 - compatibility declarations;
 - immutable image references;

@@ -5,13 +5,14 @@ root [`AGENTS.md`](../../AGENTS.md) first.
 
 ## Authoring sequence
 
-1. Read the user's requested capability and exact path.
+1. Read the user's requested capability, learning level, and exact path.
 2. Check the capability enum in `schemas/example.schema.json`.
 3. Check the controlled vocabulary in `examples/README.md`.
-4. Record the exact path once in front matter as `proposed_path`.
-5. Use that value unchanged in the decision request, planned tree, acceptance
+4. Select L100–L500 using `docs/authoring.md` and record it as `level`.
+5. Record the exact path once in front matter as `proposed_path`.
+6. Use that value unchanged in the decision request, planned tree, acceptance
    criteria, and proposal index.
-6. Search the repository for superseded capability names and paths.
+7. Search the repository for superseded capability names and paths.
 
 The proposal is complete only when the front matter, proposal index, schema,
 category documentation, and every narrative path agree.

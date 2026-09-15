@@ -10,7 +10,9 @@
     "title",
     "kind",
     "capability",
+    "level",
     "languages",
+    "infrastructure",
     "owners",
     "status",
     "valkey",
@@ -23,7 +25,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 1
+      "const": 2
     },
     "id": {
       "type": "string",
@@ -52,6 +54,16 @@
         "search"
       ]
     },
+    "level": {
+      "description": "Expected learner depth. See docs/authoring.md for the level definitions.",
+      "enum": [
+        "L100",
+        "L200",
+        "L300",
+        "L400",
+        "L500"
+      ]
+    },
     "languages": {
       "type": "array",
       "minItems": 1,
@@ -70,6 +82,36 @@
           "swift",
           "typescript"
         ]
+      }
+    },
+    "infrastructure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capsule",
+        "profiles"
+      ],
+      "properties": {
+        "capsule": {
+          "const": "../../../infra"
+        },
+        "profiles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "valkey-standalone",
+              "valkey-standalone-replicated",
+              "valkey-sentinel",
+              "valkey-cluster-3",
+              "valkey-cluster-6",
+              "valkey-standalone-host",
+              "valkey-standalone-tls-host",
+              "postgres"
+            ]
+          }
+        }
       }
     },
     "owners": {

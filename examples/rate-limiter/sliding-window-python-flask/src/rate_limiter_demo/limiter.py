@@ -8,11 +8,11 @@ from rate_limiter_demo.decision import RateLimitDecision, RateLimitPolicy
 
 
 class RateLimitDependencyError(RuntimeError):
-    """Raised when Valkey cannot produce a trustworthy decision."""
+    """Raised when Valkey cannot complete a rate-limit check."""
 
 
 class RateLimiter(Protocol):
-    """Backend-independent rate-limiter interface."""
+    """The methods every rate-limiter implementation must provide."""
 
     def check(self, identity: str, policy: RateLimitPolicy, request_id: str) -> RateLimitDecision:
         """Admit or deny one request."""

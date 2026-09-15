@@ -1,0 +1,59 @@
+name: valkey-example-validated-object-storage-python-flask
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: valkey-example-validated-object-storage-python-flask:local
+  restart: "no"
+  init: true
+  networks:
+    - demo
+  security_opt:
+    - no-new-privileges:true
+  env_file:
+    - path: .env
+      required: false
+  ports:
+    - 127.0.0.1:${FLASK_PORT:-8000}:${FLASK_PORT:-8000}
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - >-
+        import os, urllib.request;
+        urllib.request.urlopen(
+        f"http://127.0.0.1:{os.environ['FLASK_PORT']}/",
+        timeout=2)
+    interval: 1s
+    timeout: 3s
+    retries: 60
+    start_period: 3s
+
+services:
+  app-standalone:
+    <<: *app
+    profiles: ["standalone"]
+    environment:
+      FLASK_HOST: ${FLASK_HOST:-0.0.0.0}
+      FLASK_PORT: ${FLASK_PORT:-8000}
+      VALKEY_ADDRESSES: standalone-primary:6379,standalone-replica:6379
+      VALKEY_MODE: standalone
+    depends_on:
+      standalone-primary:
+        condition: service_healthy
+      standalone-replica:
+        condition: service_healthy
+
+  app-cluster:
+    <<: *app
+    profiles: ["cluster"]
+    environment:
+      FLASK_HOST: ${FLASK_HOST:-0.0.0.0}
+      FLASK_PORT: ${FLASK_PORT:-8000}
+      VALKEY_ADDRESSES: cluster-node-1:6379,cluster-node-2:6379,cluster-node-3:6379
+      VALKEY_MODE: cluster
+    depends_on:
+      cluster-init-6:
+        condition: service_completed_successfully

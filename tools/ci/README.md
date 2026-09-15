@@ -1,7 +1,9 @@
 # CI tooling
 
-This directory contains repository orchestration only. It must not become a
-runtime library imported by example capsules.
+This directory contains repository validation only. Shared local runtime
+orchestration belongs in `infra/`; application runtime behavior must remain in
+the example capsules.
 
 `check-structure.sh` performs bootstrap checks that require no third-party
-dependencies.
+dependencies, including schema-version, infrastructure-capsule, and
+proposal/manifest/README level alignment.

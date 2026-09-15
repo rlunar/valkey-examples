@@ -57,7 +57,7 @@ def create_app(config: AppConfig | None = None, limiter: RateLimiter | None = No
     def limited() -> tuple[Response, int]:
         try:
             identity = normalize_identity(request.headers.get("X-Client-ID", ""))
-            decision = runtime_limiter.check(identity, policy, uuid.uuid4().hex)
+            decision = runtime_limiter.check(identity, policy, uuid.uuid7().hex)
         except InvalidIdentity as error:
             return jsonify({"error": str(error)}), 400
         except RateLimitDependencyError:

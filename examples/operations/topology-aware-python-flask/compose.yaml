@@ -1,0 +1,109 @@
+name: valkey-example-topology-aware-python-flask
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: valkey-example-topology-aware-python-flask:local
+  restart: "no"
+  init: true
+  networks:
+    - demo
+  security_opt:
+    - no-new-privileges:true
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    FLASK_HOST: 0.0.0.0
+    FLASK_PORT: ${FLASK_PORT:-8000}
+    FLASK_THREADS: ${FLASK_THREADS:-4}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    OTEL_ENABLED: ${OTEL_ENABLED:-true}
+    OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-valkey-flask-demo}
+    VALKEY_CONNECTION_TIMEOUT_MS: ${VALKEY_CONNECTION_TIMEOUT_MS:-2000}
+    VALKEY_DATABASE_ID: "0"
+    VALKEY_KEY_PREFIX: ${VALKEY_KEY_PREFIX:-valkey-examples:flask-base:v1}
+    VALKEY_REQUEST_TIMEOUT_MS: ${VALKEY_REQUEST_TIMEOUT_MS:-1000}
+  ports:
+    - 127.0.0.1:${FLASK_PORT:-8000}:${FLASK_PORT:-8000}
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - >-
+        import os, urllib.request;
+        urllib.request.urlopen(
+        f"http://127.0.0.1:{os.environ['FLASK_PORT']}/health/ready",
+        timeout=2)
+    interval: 1s
+    timeout: 3s
+    retries: 60
+    start_period: 3s
+
+services:
+  app-standalone:
+    <<: *app
+    profiles: ["standalone"]
+    environment:
+      FLASK_HOST: 0.0.0.0
+      FLASK_PORT: ${FLASK_PORT:-8000}
+      FLASK_THREADS: ${FLASK_THREADS:-4}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-valkey-flask-demo}
+      VALKEY_ADDRESSES: standalone:6379
+      VALKEY_CONNECTION_TIMEOUT_MS: ${VALKEY_CONNECTION_TIMEOUT_MS:-2000}
+      VALKEY_DATABASE_ID: "0"
+      VALKEY_KEY_PREFIX: ${VALKEY_KEY_PREFIX:-valkey-examples:flask-base:v1}
+      VALKEY_REQUEST_TIMEOUT_MS: ${VALKEY_REQUEST_TIMEOUT_MS:-1000}
+      VALKEY_TOPOLOGY: standalone
+    depends_on:
+      standalone:
+        condition: service_healthy
+
+  app-sentinel:
+    <<: *app
+    profiles: ["sentinel"]
+    environment:
+      FLASK_HOST: 0.0.0.0
+      FLASK_PORT: ${FLASK_PORT:-8000}
+      FLASK_THREADS: ${FLASK_THREADS:-4}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-valkey-flask-demo}
+      VALKEY_ADDRESSES: sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
+      VALKEY_CONNECTION_TIMEOUT_MS: ${VALKEY_CONNECTION_TIMEOUT_MS:-2000}
+      VALKEY_DATABASE_ID: "0"
+      VALKEY_KEY_PREFIX: ${VALKEY_KEY_PREFIX:-valkey-examples:flask-base:v1}
+      VALKEY_REQUEST_TIMEOUT_MS: ${VALKEY_REQUEST_TIMEOUT_MS:-1000}
+      VALKEY_SENTINEL_MASTER: demo-primary
+      VALKEY_TOPOLOGY: sentinel
+    depends_on:
+      sentinel-1:
+        condition: service_healthy
+      sentinel-2:
+        condition: service_healthy
+      sentinel-3:
+        condition: service_healthy
+
+  app-cluster:
+    <<: *app
+    profiles: ["cluster"]
+    environment:
+      FLASK_HOST: 0.0.0.0
+      FLASK_PORT: ${FLASK_PORT:-8000}
+      FLASK_THREADS: ${FLASK_THREADS:-4}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-valkey-flask-demo}
+      VALKEY_ADDRESSES: cluster-node-1:6379,cluster-node-2:6379,cluster-node-3:6379
+      VALKEY_CONNECTION_TIMEOUT_MS: ${VALKEY_CONNECTION_TIMEOUT_MS:-2000}
+      VALKEY_DATABASE_ID: "0"
+      VALKEY_KEY_PREFIX: ${VALKEY_KEY_PREFIX:-valkey-examples:flask-base:v1}
+      VALKEY_REQUEST_TIMEOUT_MS: ${VALKEY_REQUEST_TIMEOUT_MS:-1000}
+      VALKEY_TOPOLOGY: cluster
+    depends_on:
+      cluster-init-3:
+        condition: service_completed_successfully

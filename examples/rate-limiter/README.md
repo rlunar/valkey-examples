@@ -12,3 +12,6 @@ of scope.
 - [Sliding-window rate limiter with Python and Flask](sliding-window-python-flask/)
   — compares atomic `WATCH`/`MULTI`/`EXEC` and Lua implementations through one
   HTTP contract.
+- [Sliding-window rate limiter with Python and FastAPI](sliding-window-python-fastapi/)
+  — same sliding-window implementations using an asynchronous GLIDE client
+  managed by FastAPI lifespan, with Uvicorn as the ASGI server.

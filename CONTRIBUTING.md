@@ -53,10 +53,14 @@ capability-named implementations beneath `services/`.
 Every capsule must contain:
 
 - `example.yaml`, validated by `schemas/example.schema.json`;
+- a required L100–L500 `level` matching the definitions in
+  `docs/authoring.md`;
 - a `README.md` describing audience, prerequisites, learning objective,
   expected output, security limitations, and cleanup;
 - explanatory diagrams following the contract in `docs/authoring.md`;
 - a capsule-owned `Makefile`;
+- an `infrastructure` manifest entry pointing to `../../../infra` with the
+  exact profiles used by the capsule;
 - language-native version declarations, manifests, and lockfiles;
 - automated behavioral assertions against real Valkey; and
 - deterministic fixtures when data is required.
@@ -74,6 +78,11 @@ make stop
 The commands must be idempotent where practical. `make stop` must be safe after
 a partial startup failure. CI must not silently skip a command or replace real
 Valkey behavior with mocks.
+
+Application capsules may share only infrastructure orchestration: database
+services, Compose topology, Make defaults, readiness checks, and lifecycle
+shell helpers under the root `infra/` capsule. Application behavior, runtime
+dependencies, source, fixtures, and tests remain capsule-owned.
 
 ## Reproducibility
 

@@ -1,0 +1,19 @@
+name: valkey-example-client-connection-glide-python
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: valkey-example-client-connection-glide-python:local
+    restart: "no"
+    init: true
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./.env:/app/.env:ro
+    networks:
+      - demo
+    security_opt:
+      - no-new-privileges:true

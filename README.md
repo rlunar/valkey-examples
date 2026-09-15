@@ -4,9 +4,11 @@ Valkey Examples is a curated catalog of runnable educational code that makes
 Valkey behavior observable from a clean clone.
 
 The repository is organized by Valkey capability rather than by framework,
-vendor, or programming language. Each independently runnable directory is an
-example capsule with its own dependencies, lockfiles, tests, ownership, and
-lifecycle.
+vendor, or programming language. Each example capsule owns its dependencies,
+lockfiles, application code, tests, ownership, and lifecycle interface. A
+single root [infrastructure capsule](infra/) owns the repeated local Valkey and
+PostgreSQL processes, shared Valkey tuning, an opt-in mutual-TLS profile, and
+the Make and Bash orchestration around them.
 
 > [!IMPORTANT]
 > This repository contains educational examples, not certified production
@@ -47,6 +49,39 @@ Tools, libraries, operators, actions, benchmark suites, event assets, and
 projects requiring independent releases or security advisories belong in
 purpose-built repositories.
 
+## Learning levels
+
+Every capsule declares one learner level in `example.yaml`:
+
+| Level | Audience |
+| --- | --- |
+| `L100` | Beginner |
+| `L200` | Intermediate |
+| `L300` | Advanced |
+| `L400` | Expert |
+| `L500` | Maintainer |
+
+The level describes prerequisite knowledge and conceptual depth, not code size,
+container count, or resource requirements. The complete definitions and
+classification guidance are in [docs/authoring.md](docs/authoring.md).
+
+## Suggested learning order
+
+These capsules build on one another:
+
+| Step | Capsule | Main idea |
+| --- | --- | --- |
+| 1 | [Minimal GLIDE connection](examples/operations/client-connection-glide-python/) | Connect, `SET`, `GET`, and close |
+| 2 | [Flask client quickstart](examples/operations/client-quickstart-python-flask/) | Put the same commands behind one HTTP route |
+| 3 | [Validated object storage](examples/data-structures/validated-object-storage-python-flask/) | Check an object, store JSON, and rebuild its type |
+| 4 | [Topology-aware Flask](examples/operations/topology-aware-python-flask/) | Keep route code unchanged across standalone, Sentinel, and cluster |
+| 5 | [Flask rate limiter](examples/rate-limiter/sliding-window-python-flask/) | Use a sorted set and transaction to limit requests |
+| 6 | [FastAPI rate limiter](examples/rate-limiter/sliding-window-python-fastapi/) | Run the same limiter with asynchronous Python |
+
+Start with the [infrastructure standalone
+tutorial](infra/docs/standalone/TUTORIAL.md) if Docker or Valkey server setup
+is new to you.
+
 ## Structure
 
 ```text
@@ -55,7 +90,8 @@ purpose-built repositories.
 ├── catalog/                  # generated catalog outputs
 ├── docs/
 │   ├── authoring.md
-│   └── languages/            # ecosystem-specific authoring requirements
+│   ├── languages/            # ecosystem-specific authoring requirements
+│   └── templates/            # demo, tutorial, and video authoring templates
 ├── examples/
 │   ├── caching/
 │   ├── data-structures/
@@ -64,13 +100,14 @@ purpose-built repositories.
 │   ├── operations/
 │   ├── rate-limiter/
 │   └── search/
+├── infra/                    # shared databases, lifecycle, and deployment demos
 ├── schemas/                  # manifest and compatibility contracts
 └── tools/                    # metadata, catalog, and CI tooling only
 ```
 
-The example kind, language, owners, compatibility, and lifecycle are metadata.
-They are exposed as filters in the generated catalog rather than duplicated as
-top-level directory hierarchies.
+The example kind, level, language, owners, compatibility, and lifecycle are
+metadata. They are exposed as filters in the generated catalog rather than
+duplicated as top-level directory hierarchies.
 
 ## Example capsule
 
@@ -81,8 +118,14 @@ examples/<capability>/<slug>-<language>/
 ├── example.yaml
 ├── README.md
 ├── Makefile
-├── compose.yaml              # only when multiple processes are required
+├── compose.yaml              # app-only services, when the app is containerized
 ├── .env.example              # variable names and safe placeholders only
+├── docs/
+│   ├── DEMO.md
+│   ├── TUTORIAL.md
+│   ├── SCRIPT_REEL.md
+│   ├── SCRIPT_VIDEO.md
+│   └── VIDEO.md
 ├── src/
 ├── tests/
 │   ├── unit/
@@ -105,8 +148,11 @@ make reset
 make stop
 ```
 
-These targets delegate to the language's native tools. Capsules must not import
-a repository-local runtime library or depend on another capsule.
+These targets delegate to the language's native tools and the shared
+`infra/` capsule. Capsules must not import a repository-local application
+runtime library or depend on another example capsule. Their `example.yaml`
+must point to `../../../infra` and list the exact infrastructure profiles used
+by the journey.
 
 ## Language tooling
 
@@ -135,6 +181,7 @@ The proposal must identify:
 
 - the Valkey behavior and expected observable result;
 - cookbook, demo, or sample-application kind;
+- L100–L500 learning level;
 - capability category and proposed capsule path;
 - language, client, Valkey, and dependency versions;
 - credential-free local journey and resource budget;

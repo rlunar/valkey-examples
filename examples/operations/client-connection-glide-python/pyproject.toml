@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "valkey-client-connection-glide-python"
+version = "0.1.0"
+description = "A minimal standalone and cluster Valkey GLIDE connection demo"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+  "python-dotenv==1.2.3",
+  "valkey-glide-sync==2.5.1",
+]
+
+[project.scripts]
+valkey-connect = "valkey_connection.app:main"
+
+[dependency-groups]
+dev = [
+  "mypy==2.3.1",
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "ruff==0.16.4",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+valkey_connection = ["py.typed"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+markers = [
+  "integration: requires a real Valkey topology",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+packages = ["valkey_connection"]
+
+[tool.coverage.run]
+branch = true
+source = ["valkey_connection"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
